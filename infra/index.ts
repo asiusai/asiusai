@@ -1,8 +1,9 @@
 import * as cloudflare from '@pulumi/cloudflare'
+import { readFileSync } from 'fs'
+import { join } from 'path'
 
 // ------------------------- CONSTS -------------------------
 const ACCOUNT_ID = '558df022e422781a34f239d7de72c8ae'
-const NEW_CONNECT_ZONE_ID = '9dbe2445beeb3c44e991656fada0231c'
 const ASIUS_ZONE_ID = 'f4c49c38916764f43e3854fb5461db31'
 
 // ------------------------- PROXIES -------------------------
@@ -80,6 +81,15 @@ new cloudflare.PagesDomain('comma-connect-domain', {
   name: 'comma.asius.ai',
 })
 
+new cloudflare.DnsRecord('comma-connect-dns', {
+  zoneId: ASIUS_ZONE_ID,
+  name: 'comma',
+  type: 'CNAME',
+  content: 'comma-connect.pages.dev',
+  proxied: true,
+  ttl: 1,
+})
+
 // ------------------------- KONIK CONNECT -------------------------
 const konik = new cloudflare.PagesProject('konik-connect', {
   accountId: ACCOUNT_ID,
@@ -105,20 +115,53 @@ new cloudflare.PagesDomain('konik-connect-domain', {
   name: 'konik.asius.ai',
 })
 
+new cloudflare.DnsRecord('konik-connect-dns', {
+  zoneId: ASIUS_ZONE_ID,
+  name: 'konik',
+  type: 'CNAME',
+  content: 'konik-connect.pages.dev',
+  proxied: true,
+  ttl: 1,
+})
 
-// ------------------------- REDIRECTS -------------------------
-// TODO: remove these
-const deployRedirect = (from: string, to: string) => {
-  const name = from.replace('.', '-')
+// ------------------------- OPENPILOT/SUNNYPILOT INSTALLERS -------------------------
+const installerWorker = readFileSync(join(__dirname, '../installer/worker.js'), 'utf-8')
 
-  new cloudflare.PageRule(`${name}-redirect`, {
-    zoneId: NEW_CONNECT_ZONE_ID,
-    target: `${from}/*`,
-    actions: { forwardingUrl: { statusCode: 301, url: `https://${to}/$1` } },
-    priority: 1,
-  })
-}
+const installer = new cloudflare.WorkersScript('installer', {
+  accountId: ACCOUNT_ID,
+  scriptName: 'installer',
+  mainModule: 'index.js',
+  content: installerWorker,
+})
 
-deployRedirect('new-connect.dev', 'comma.asius.ai')
-deployRedirect('www.new-connect.dev', 'comma.asius.ai')
-deployRedirect('konik.new-connect.dev', 'konik.asius.ai')
+// openpilot.asius.ai
+new cloudflare.DnsRecord('openpilot-installer-dns', {
+  zoneId: ASIUS_ZONE_ID,
+  name: 'openpilot',
+  type: 'AAAA',
+  content: '100::',
+  proxied: true,
+  ttl: 1,
+})
+
+new cloudflare.WorkersRoute('openpilot-installer-route', {
+  zoneId: ASIUS_ZONE_ID,
+  pattern: 'openpilot.asius.ai/*',
+  script: installer.scriptName,
+})
+
+// sunnypilot.asius.ai
+new cloudflare.DnsRecord('sunnypilot-installer-dns', {
+  zoneId: ASIUS_ZONE_ID,
+  name: 'sunnypilot',
+  type: 'AAAA',
+  content: '100::',
+  proxied: true,
+  ttl: 1,
+})
+
+new cloudflare.WorkersRoute('sunnypilot-installer-route', {
+  zoneId: ASIUS_ZONE_ID,
+  pattern: 'sunnypilot.asius.ai/*',
+  script: installer.scriptName,
+})

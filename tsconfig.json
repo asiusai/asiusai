@@ -11,7 +11,6 @@
     "noEmit": true,
     "strict": true,
     "types": ["bun"],
-    "isolatedModules": true,
     "skipLibCheck": true,
     "incremental": true
   },
