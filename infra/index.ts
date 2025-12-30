@@ -130,9 +130,8 @@ const site = new cloudflare.PagesProject('asius-site', {
   name: 'asius-site',
   productionBranch: 'master',
   buildConfig: {
-    rootDir: 'site',
-    buildCommand: 'bun i && bun run build',
-    destinationDir: 'dist',
+    buildCommand: 'cd site && bun i && bun run build',
+    destinationDir: 'site/dist',
   },
   source: {
     type: 'github',
