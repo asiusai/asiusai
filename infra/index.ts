@@ -130,7 +130,7 @@ const site = new cloudflare.PagesProject('asius-site', {
   name: 'asius-site',
   productionBranch: 'master',
   buildConfig: {
-    buildCommand: 'cd site && bun i && bun run build',
+    buildCommand: 'ls -la && pwd && cd site && bun i && bun run build',
     destinationDir: 'site/dist',
     buildCaching: true,
   },
