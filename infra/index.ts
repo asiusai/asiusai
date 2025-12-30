@@ -132,6 +132,19 @@ const site = new cloudflare.PagesProject('asius-site', {
   buildConfig: {
     buildCommand: 'cd site && bun i && bun run build',
     destinationDir: 'site/dist',
+    buildCaching: true,
+  },
+  deploymentConfigs: {
+    production: {
+      envVars: {
+        SKIP_DEPENDENCY_INSTALL: { value: 'true', type: 'plain_text' },
+      },
+    },
+    preview: {
+      envVars: {
+        SKIP_DEPENDENCY_INSTALL: { value: 'true', type: 'plain_text' },
+      },
+    },
   },
   source: {
     type: 'github',
