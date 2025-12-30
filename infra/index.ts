@@ -124,6 +124,40 @@ new cloudflare.DnsRecord('konik-connect-dns', {
   ttl: 1,
 })
 
+// ------------------------- ASIUS CONNECT -------------------------
+const connect = new cloudflare.PagesProject('asius-connect', {
+  accountId: ACCOUNT_ID,
+  name: 'asius-connect',
+  productionBranch: 'master',
+  buildConfig: {
+    buildCommand: 'bun i && bun run --bun vite build --mode asius',
+    destinationDir: 'dist',
+  },
+  source: {
+    type: 'github',
+    config: {
+      owner: 'asiusai',
+      repoName: 'connect',
+      prCommentsEnabled: true,
+    },
+  },
+})
+
+new cloudflare.PagesDomain('asius-connect-domain', {
+  accountId: ACCOUNT_ID,
+  projectName: connect.name,
+  name: 'connect.asius.ai',
+})
+
+new cloudflare.DnsRecord('asius-connect-dns', {
+  zoneId: ASIUS_ZONE_ID,
+  name: 'connect',
+  type: 'CNAME',
+  content: 'asius-connect.pages.dev',
+  proxied: true,
+  ttl: 1,
+})
+
 // ------------------------- ASIUS.AI SITE -------------------------
 const site = new cloudflare.PagesProject('asius-site', {
   accountId: ACCOUNT_ID,
