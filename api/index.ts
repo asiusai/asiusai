@@ -1,7 +1,8 @@
 import { fetchRequestHandler } from '@ts-rest/serverless/fetch'
 import { router } from './router'
 import { openApiDoc, swaggerHtml } from './swagger'
-import { env } from '../connect/src/utils/env'
+
+const USER_CONTENT_DIR = process.env.USER_CONTENT_DIR ?? 'userdata'
 
 const headers = {
   'Access-Control-Allow-Origin': '*',
@@ -21,7 +22,7 @@ const server = Bun.serve({
       if (path === '/') return new Response(swaggerHtml, { headers: { ...headers, 'Content-Type': 'text/html' } })
       if (path === '/openapi.json') return Response.json(openApiDoc, { headers })
 
-      if (path.startsWith(`/${env.USER_CONTENT_DIR}`)) {
+      if (path.startsWith(`/${USER_CONTENT_DIR}`)) {
         return new Response(Bun.file(path.slice(1)), {
           headers: { ...headers, 'Content-Disposition': `attachment; filename="${path.split('/').pop()}"` },
         })
