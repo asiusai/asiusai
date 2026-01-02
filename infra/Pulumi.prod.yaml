@@ -3,3 +3,7 @@ config:
   cloudflare:apiKey:
     secure: v1:hA/5FY74pHl9BMx9:78l3m77aaDqLpy3kJFZWU2OuFyr80MLnJsDIhvFgyj80YlzFNHVQANP4JGlSuP/hG7VOwOo=
   cloudflare:email: nagelkarel@gmail.com
+  asius:sshPublicKey:
+    secure: v1:n7gJr64l7Mi1Ve8g:pPyydOSHBjlVfB8kb/BU76PLTdB0w2t67NFAeZHvOidvWeKUrXTU/CAsjU85ulIthY1mCZ+RjlDwp+zt4aFLY6qabj9Mk1QaniogQEIChKYbKUnbtkgP543ylBwckTDmejOQEAZ2bqBFCsAnkQ==
+  hcloud:token:
+    secure: v1:z3SscIwif2W9d9r/:XawpJ6IrVUIgZl6pOvdQPAaUtTJC5djQIHdD2ufJXDG4KsixaCD9H62OB/dgAkm+EcSNCrP/34JD7Fa1BnuEZpLjTkvBiA1DgCYtQUzs158=

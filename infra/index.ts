@@ -1,6 +1,10 @@
 import * as cloudflare from '@pulumi/cloudflare'
+import * as hcloud from '@pulumi/hcloud'
+import * as pulumi from '@pulumi/pulumi'
 import { readFileSync } from 'fs'
 import { join } from 'path'
+
+const config = new pulumi.Config()
 
 // ------------------------- CONSTS -------------------------
 const ACCOUNT_ID = '558df022e422781a34f239d7de72c8ae'
@@ -262,4 +266,40 @@ new cloudflare.WorkersRoute('sunnypilot-installer-route', {
   zoneId: ASIUS_ZONE_ID,
   pattern: 'sunnypilot.asius.ai/*',
   script: installer.scriptName,
+})
+
+// ------------------------- API SERVER -------------------------
+const sshKey = new hcloud.SshKey('api-ssh-key', {
+  publicKey: config.requireSecret('sshPublicKey'),
+})
+
+const firewall = new hcloud.Firewall('api-firewall', {
+  rules: [
+    { direction: 'in', protocol: 'tcp', port: '22', sourceIps: ['0.0.0.0/0', '::/0'] },
+    { direction: 'in', protocol: 'tcp', port: '80', sourceIps: ['0.0.0.0/0', '::/0'] },
+  ],
+})
+
+const apiServer = new hcloud.Server('api-server', {
+  serverType: 'cpx22',
+  image: 'docker-ce',
+  location: 'nbg1',
+  sshKeys: [sshKey.id],
+  firewallIds: [firewall.id.apply((id) => parseInt(id, 10))],
+  userData: `#!/bin/bash
+cd /root
+git clone https://github.com/asiusai/asiusai.git
+cd asiusai
+docker build -f Dockerfile.api -t api .
+docker run -d --restart=always -p 80:8080 api
+`,
+})
+
+new cloudflare.DnsRecord('api-dns', {
+  zoneId: ASIUS_ZONE_ID,
+  name: 'api',
+  type: 'A',
+  content: apiServer.ipv4Address,
+  proxied: true,
+  ttl: 1,
 })
