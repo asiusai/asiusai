@@ -1,4 +1,7 @@
 {
   "name": "@asiusai/api",
-  "private": true
+  "private": true,
+  "dependencies": {
+    "@ts-rest/serverless": "^3.52.1"
+  }
 }

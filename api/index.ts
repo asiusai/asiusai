@@ -1,7 +1,6 @@
 import { fetchRequestHandler } from '@ts-rest/serverless/fetch'
-import { renderer } from '../src/api/contract'
 import { router } from './router'
-import { env } from '../src/utils/env'
+import { env } from '../connect/src/utils/env'
 
 const headers = {
   'Access-Control-Allow-Origin': '*',
@@ -25,7 +24,7 @@ const server = Bun.serve({
       }
 
       const res = await fetchRequestHandler({
-        contract: renderer,
+        contract: router,
         router,
         request,
         platformContext: {},

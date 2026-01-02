@@ -4,6 +4,6 @@ import tailwindcss from '@tailwindcss/vite'
 export default defineConfig({
   site: 'https://asius.ai',
   vite: {
-    plugins: [tailwindcss()]
-  }
+    plugins: [tailwindcss()],
+  },
 })
