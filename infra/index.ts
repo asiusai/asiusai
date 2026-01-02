@@ -1,4 +1,5 @@
 import * as cloudflare from '@pulumi/cloudflare'
+import * as command from '@pulumi/command'
 import * as hcloud from '@pulumi/hcloud'
 import * as pulumi from '@pulumi/pulumi'
 import { readFileSync } from 'fs'
@@ -286,14 +287,6 @@ const apiServer = new hcloud.Server('api-server', {
   location: 'nbg1',
   sshKeys: [sshKey.id],
   firewallIds: [firewall.id.apply((id) => parseInt(id, 10))],
-  userData: `#!/bin/bash
-cd /root
-git clone https://github.com/asiusai/asiusai.git
-cd asiusai
-git submodule update --init connect
-docker build -f Dockerfile.api -t api .
-docker run -d --restart=always -p 80:8080 api
-`,
 })
 
 new cloudflare.DnsRecord('api-dns', {
@@ -304,3 +297,27 @@ new cloudflare.DnsRecord('api-dns', {
   proxied: true,
   ttl: 1,
 })
+
+new command.remote.Command(
+  'api-deploy',
+  {
+    connection: {
+      host: apiServer.ipv4Address,
+      user: 'root',
+      privateKey: config.requireSecret('sshPrivateKey'),
+    },
+    create: `
+cd /root
+[ -d asiusai ] || git clone https://github.com/asiusai/asiusai.git
+cd asiusai
+git pull
+git submodule update --init connect
+docker build -f Dockerfile.api -t api .
+docker stop api 2>/dev/null || true
+docker rm api 2>/dev/null || true
+docker run -d --name api --restart=always -p 80:8080 api
+`,
+    triggers: [Date.now()],
+  },
+  { dependsOn: [apiServer] },
+)
