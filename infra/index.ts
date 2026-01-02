@@ -5,6 +5,7 @@ import { join } from 'path'
 // ------------------------- CONSTS -------------------------
 const ACCOUNT_ID = '558df022e422781a34f239d7de72c8ae'
 const ASIUS_ZONE_ID = 'f4c49c38916764f43e3854fb5461db31'
+const NEW_CONNECT_ZONE_ID = '9dbe2445beeb3c44e991656fada0231c'
 
 // ------------------------- PROXIES -------------------------
 const deployProxy = (original: string, subdomain: string) => {
@@ -84,6 +85,21 @@ new cloudflare.PagesDomain('comma-connect-domain', {
 new cloudflare.DnsRecord('comma-connect-dns', {
   zoneId: ASIUS_ZONE_ID,
   name: 'comma',
+  type: 'CNAME',
+  content: 'comma-connect.pages.dev',
+  proxied: true,
+  ttl: 1,
+})
+
+new cloudflare.PagesDomain('new-connect-domain', {
+  accountId: ACCOUNT_ID,
+  projectName: comma.name,
+  name: 'new-connect.dev',
+})
+
+new cloudflare.DnsRecord('new-connect-dns', {
+  zoneId: NEW_CONNECT_ZONE_ID,
+  name: '@',
   type: 'CNAME',
   content: 'comma-connect.pages.dev',
   proxied: true,
