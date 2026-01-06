@@ -1,20 +1,19 @@
 import { z } from 'zod'
 
-const zString = (def?: string) => (def ? z.string().default(def) : z.string())
-const zNumber = (def?: string) => (def ? z.string().default(def) : z.string()).transform((x) => Number(x))
-const zArray = (def?: string) => (def ? z.string().default(def) : z.string()).transform((x) => x.split(','))
-
 export const Environment = z.object({
-  JWT_SECRET: zString('sdfasjh43h5j3h4jhsadgfjharjhty345tsdfhjsjdhf'),
-  MKV_PORT: zNumber('5100'),
-  MKV_VOLUMES: zArray('/tmp/mkv0,/tmp/mkv1'),
-  MKV_DB: zString('/tmp/mkvdb'),
+  MKV_PORT: z.coerce.number().default(5100),
+  MKV_VOLUMES: z
+    .string()
+    .default('/tmp/mkv0,/tmp/mkv1')
+    .transform((x) => x.split(',')),
+  MKV_DB: z.string().default('/tmp/mkvdb'),
 
-  DB_URL: zString('file:///tmp/data.db'),
-  DB_AUTH: zString().optional(),
+  DB_URL: z.string().default('file:///tmp/data.db'),
+  DB_AUTH: z.string().optional(),
 
-  GOOGLE_CLIENT_ID: zString(),
-  GOOGLE_CLIENT_SECRET: zString(),
+  JWT_SECRET: z.string(),
+  GOOGLE_CLIENT_ID: z.string(),
+  GOOGLE_CLIENT_SECRET: z.string(),
 })
 
 export const env = Environment.parse(process.env)

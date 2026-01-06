@@ -1,53 +1,37 @@
 import { contract } from '../../connect/src/api/contract'
 import { InternalServerError, NotFoundError, tsr, UnauthorizedError } from '../common'
-import { env } from '../env'
 import { dataMiddleware } from '../middleware'
-
-const mkv = (path: string) => `http://localhost:${env.MKV_PORT}/${path}`
+import { mkv } from '../mkv'
 
 export const data = tsr.router(contract.data, {
   get: dataMiddleware(async ({ query, headers }, { key, responseHeaders }) => {
-    // List mode
     if (query.list !== undefined) {
-      let qs = 'list'
-      if (query.start) qs += `&start=${query.start}`
-      if (query.limit) qs += `&limit=${query.limit}`
-      const res = await fetch(`${mkv(key)}?${qs}`)
-      if (!res.ok) throw new NotFoundError()
-      responseHeaders.set('Content-Type', 'application/json')
-      return { status: 200, body: await res.blob() }
+      const files = await mkv.list(key, query.start, query.limit)
+      return { status: 200, body: new Blob([JSON.stringify(files)]) }
     }
 
-    const res = await fetch(mkv(key), { headers, redirect: 'follow' })
+    const res = await mkv.get(key, headers)
     if (res.status === 404) throw new NotFoundError()
     if (!res.ok) throw new InternalServerError()
 
-    // Copy response headers
     for (const h of ['Content-Type', 'Content-Length', 'Content-Range', 'Accept-Ranges', 'Content-Md5']) {
       const v = res.headers.get(h)
       if (v) responseHeaders.set(h, v)
     }
 
-    const body = await res.blob()
-    return { status: res.status as 200 | 206, body }
+    return { status: res.status as 200 | 206, body: await res.blob() }
   }),
   put: dataMiddleware(async ({ headers }, { key, request, permission }) => {
     if (permission !== 'owner') throw new UnauthorizedError('User only has read access')
 
-    const res = await fetch(mkv(key), {
-      method: 'PUT',
-      body: request.body,
-      headers,
-      // @ts-expect-error bun supports duplex
-      duplex: 'half',
-    })
+    const res = await mkv.put(key, request.body, headers)
     if (!res.ok) throw new InternalServerError()
     return { status: 201, body: undefined }
   }),
   delete: dataMiddleware(async (_, { key, permission }) => {
     if (permission !== 'owner') throw new UnauthorizedError('User only has read access')
 
-    const res = await fetch(mkv(key), { method: 'DELETE' })
+    const res = await mkv.delete(key)
     if (!res.ok) throw new InternalServerError()
 
     return { status: 204, body: undefined }

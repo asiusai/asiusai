@@ -59,7 +59,7 @@ export const routesTable = sqliteTable('routes', {
   git_dirty: integer('git_dirty', { mode: 'boolean' }),
   git_remote: text('git_remote'),
   is_public: integer('is_public', { mode: 'boolean' }).notNull(),
-  is_preserved: integer('is_public', { mode: 'boolean' }).notNull(),
+  is_preserved: integer('is_preserved', { mode: 'boolean' }).notNull(),
   distance: real('distance'),
   maxqlog: real('maxqlog').notNull(),
   platform: text('platform'),
@@ -74,6 +74,7 @@ export const routesTable = sqliteTable('routes', {
   id: real('id'),
   car_id: real('car_id'),
   version_id: real('version_id'),
+  user_id: text('user_id'),
 
   create_time: createdAt('create_time'),
 })
@@ -99,6 +100,15 @@ export const logsTable = sqliteTable('logs', {
   create_time: createdAt('create_time'),
 })
 
+export const athenaQueueTable = sqliteTable('athena_queue', {
+  id: text('id').primaryKey(),
+  dongle_id: text('dongle_id').notNull(),
+  method: text('method').notNull(),
+  params: text('params').notNull(),
+  expiry: integer('expiry', { mode: 'timestamp' }),
+  create_time: createdAt('create_time'),
+})
+
 // RELATIONS
 export const usersRelations = relations(usersTable, ({ many }) => ({
   devices: many(deviceUsersTable),
@@ -108,6 +118,7 @@ export const devicesRelations = relations(devicesTable, ({ many }) => ({
   users: many(deviceUsersTable),
   routes: many(routesTable),
   pings: many(athenaPingsTable),
+  athenaQueue: many(athenaQueueTable),
 }))
 
 export const deviceUserRelations = relations(deviceUsersTable, ({ one }) => ({
@@ -141,9 +152,16 @@ export const statsRelations = relations(statsTable, ({ one }) => ({
     references: [devicesTable.dongle_id],
   }),
 }))
-export const logsRelations = relations(statsTable, ({ one }) => ({
+export const logsRelations = relations(logsTable, ({ one }) => ({
   device: one(devicesTable, {
-    fields: [statsTable.dongle_id],
+    fields: [logsTable.dongle_id],
+    references: [devicesTable.dongle_id],
+  }),
+}))
+
+export const athenaQueueRelations = relations(athenaQueueTable, ({ one }) => ({
+  device: one(devicesTable, {
+    fields: [athenaQueueTable.dongle_id],
     references: [devicesTable.dongle_id],
   }),
 }))

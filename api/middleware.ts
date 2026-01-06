@@ -51,16 +51,33 @@ export const deviceMiddleware = createMiddleware(async (req: { params: { dongleI
   return { ...ctx, identity, device: deviceUser.device, permission: deviceUser.permission }
 })
 
-/**
- * Checks if route is public or user has access to the requested route
- */
-export const routeMiddleware = createMiddleware(async (req: { params: { routeName: string } }, { identity, ...ctx }) => {
-  if (!identity) throw new UnauthorizedError()
-  if (identity.type === 'device') throw new ForbiddenError()
+type RouteSignature = { key: string; permission: Permission }
+export const createRouteSignature = (dongleId: string, routeId: string, permission: Permission, expiresIn?: number) =>
+  sign({ key: `${dongleId}/${routeId}`, permission }, env.JWT_SECRET, expiresIn)
 
+/**
+ * Checks if route is public, has valid signature, or user has access to the requested route
+ */
+export const routeMiddleware = createMiddleware(async (req: { params: { routeName: string }; query: { sig?: string } }, { identity, ...ctx }) => {
   const route = await db.query.routesTable.findFirst({ where: eq(routesTable.fullname, req.params.routeName) })
   if (!route) throw new NotFoundError()
+
+  // Check signature access
+  if (req.query.sig) {
+    const routeId = route.fullname.split('|')[1]
+    const expectedKey = `${route.dongle_id}/${routeId}`
+    const signature = verify<RouteSignature>(req.query.sig, env.JWT_SECRET)
+    if (signature && signature.key === expectedKey) {
+      return { ...ctx, identity, route, permission: signature.permission }
+    }
+  }
+
+  // Public routes are accessible without auth
   if (route.is_public) return { ...ctx, identity, route, permission: 'read_access' as const }
+
+  // Otherwise require authentication
+  if (!identity) throw new UnauthorizedError()
+  if (identity.type === 'device') throw new ForbiddenError()
 
   const deviceUser = await db.query.deviceUsersTable.findFirst({
     where: and(eq(deviceUsersTable.user_id, identity.user.id), eq(deviceUsersTable.dongle_id, route.dongle_id)),
@@ -68,9 +85,7 @@ export const routeMiddleware = createMiddleware(async (req: { params: { routeNam
   })
   if (!deviceUser) throw new ForbiddenError()
 
-  // TODO: add signature routes
-
-  return { ...ctx, identity, device: deviceUser.device, permission: deviceUser.permission }
+  return { ...ctx, identity, route, permission: deviceUser.permission }
 })
 
 type DataSignature = { key: string; permission: Permission }

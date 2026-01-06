@@ -10,7 +10,7 @@ await startMkv()
 
 const headers = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
   'Access-Control-Allow-Headers': '*',
 }
 
@@ -38,7 +38,7 @@ const handle = async (req: Request, server: Bun.Server<WebSocketData>, identity?
     router,
     request: req,
     platformContext: { identity, origin: url.origin },
-    options: {},
+    options: { responseValidation: true },
   })
 
   Object.entries(headers).forEach(([key, value]) => res.headers.set(key, value))
@@ -59,7 +59,7 @@ const server = Bun.serve({
       return new Response(`Server error: ${e}`, { status: 500 })
     })
     console[res && res.status >= 400 ? 'error' : 'log'](
-      req.method,
+      req.method.padEnd(4),
       res?.status ?? 200,
       (identity ? `${identity.type}(${identity.id})` : '-').padEnd(24),
       req.url.split('?')[0],

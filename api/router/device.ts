@@ -1,11 +1,22 @@
-import { and, desc, eq } from 'drizzle-orm'
+import { and, desc, eq, gte, sql, sum } from 'drizzle-orm'
 import { contract } from '../../connect/src/api/contract'
-import { ForbiddenError, InternalServerError, NotImplementedError, tsr } from '../common'
+import { ForbiddenError, InternalServerError, tsr } from '../common'
 import { db } from '../db/client'
-import { athenaPingsTable, DeviceData, devicesTable, deviceUsersTable } from '../db/schema'
+import { athenaPingsTable, DeviceData, devicesTable, deviceUsersTable, routesTable } from '../db/schema'
 import { createDataSignature, deviceMiddleware } from '../middleware'
 import { Device } from '../../connect/src/types'
 import { Identity } from '../auth'
+import { getOfflineQueue } from '../ws'
+import { mkv } from '../mkv'
+
+const getLogUrls = async (dongleId: string, type: 'boot' | 'crash', origin: string) => {
+  const files = await mkv.list(`${dongleId}/${type}`)
+  return files.map((f) => {
+    const key = `${dongleId}/${type}/${f}`
+    const sig = createDataSignature(key, 'read_access', 24 * 60 * 60)
+    return `${origin}/connectdata/${key}?sig=${sig}`
+  })
+}
 
 export const deviceDataToDevice = async (device: DeviceData, identity: Identity): Promise<Device> => {
   const lastPing = await db.query.athenaPingsTable.findFirst({ orderBy: desc(athenaPingsTable.create_time) })
@@ -30,26 +41,62 @@ export const device = tsr.routerWithMiddleware(contract.device)<{ userId?: strin
     return { status: 200, body: await deviceDataToDevice(device, identity) }
   }),
   athenaOfflineQueue: deviceMiddleware(async (_, { device }) => {
-    throw new NotImplementedError(`${device.dongle_id} offline queue`)
+    const queue = await getOfflineQueue(device.dongle_id)
+    return { status: 200, body: queue }
   }),
-  bootlogs: deviceMiddleware(async (_, { device }) => {
-    throw new NotImplementedError(`${device.dongle_id} bootlogs`)
+  bootlogs: deviceMiddleware(async (_, { device, origin }) => {
+    return { status: 200, body: await getLogUrls(device.dongle_id, 'boot', origin) }
   }),
-  crashlogs: deviceMiddleware(async (_, { device }) => {
-    throw new NotImplementedError(`${device.dongle_id} crashlogs`)
+  crashlogs: deviceMiddleware(async (_, { device, origin }) => {
+    return { status: 200, body: await getLogUrls(device.dongle_id, 'crash', origin) }
   }),
   location: deviceMiddleware(async (_, { device }) => {
-    // TODO
-    return { status: 200, body: { dongle_id: device.dongle_id, lat: 0, lng: 0, time: 0, accuracy: 0, bearing: 0, speed: 0 } }
+    const lastRoute = await db.query.routesTable.findFirst({
+      where: eq(routesTable.dongle_id, device.dongle_id),
+      orderBy: desc(routesTable.create_time),
+    })
+    return {
+      status: 200,
+      body: {
+        dongle_id: device.dongle_id,
+        lat: lastRoute?.end_lat ?? lastRoute?.start_lat ?? 0,
+        lng: lastRoute?.end_lng ?? lastRoute?.start_lng ?? 0,
+        time: lastRoute?.end_time ? new Date(lastRoute.end_time).getTime() : 0,
+        accuracy: 0,
+        bearing: 0,
+        speed: 0,
+      },
+    }
   }),
+  stats: deviceMiddleware(async (_, { device }) => {
+    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
 
-  stats: deviceMiddleware(async () => {
-    // TODO
-    return { status: 200, body: { all: { distance: 0, minutes: 0, routes: 0 }, week: { distance: 0, minutes: 0, routes: 0 } } }
+    const allStats = await db
+      .select({
+        routes: sql<number>`count(*)`,
+        distance: sum(routesTable.distance),
+      })
+      .from(routesTable)
+      .where(eq(routesTable.dongle_id, device.dongle_id))
+
+    const weekStats = await db
+      .select({
+        routes: sql<number>`count(*)`,
+        distance: sum(routesTable.distance),
+      })
+      .from(routesTable)
+      .where(and(eq(routesTable.dongle_id, device.dongle_id), gte(routesTable.create_time, weekAgo)))
+
+    return {
+      status: 200,
+      body: {
+        all: { distance: Number(allStats[0]?.distance) || 0, minutes: 0, routes: allStats[0]?.routes || 0 },
+        week: { distance: Number(weekStats[0]?.distance) || 0, minutes: 0, routes: weekStats[0]?.routes || 0 },
+      },
+    }
   }),
   firehoseStats: deviceMiddleware(async () => {
-    // TODO
-    return { status: 200, body: { firehose: 69 } }
+    return { status: 200, body: { firehose: 0 } }
   }),
 
   // OWNER
