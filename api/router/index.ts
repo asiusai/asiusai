@@ -6,12 +6,18 @@ import { prime } from './prime'
 import { auth } from './auth'
 import { routes } from './routes'
 import { data } from './data'
+import { device } from './device'
+import { route } from './route'
+import { users } from './users'
 
 export const router = tsr.router(contract, {
-  athena,
-  devices,
-  prime,
   auth,
+  devices,
+  device,
   routes,
+  route,
+  users,
+  athena,
+  prime,
   data,
 })

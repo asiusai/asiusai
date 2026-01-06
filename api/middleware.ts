@@ -68,6 +68,8 @@ export const routeMiddleware = createMiddleware(async (req: { params: { routeNam
   })
   if (!deviceUser) throw new ForbiddenError()
 
+  // TODO: add signature routes
+
   return { ...ctx, identity, device: deviceUser.device, permission: deviceUser.permission }
 })
 

@@ -2,15 +2,14 @@ import { contract } from '../../connect/src/api/contract'
 import { NotImplementedError, tsr } from '../common'
 import { deviceMiddleware } from '../middleware'
 
-export const routes = tsr.router(contract.routes, {
-  allRoutes: deviceMiddleware(async () => {
-    
+export const users = tsr.router(contract.users, {
+  get: deviceMiddleware(async () => {
     throw new NotImplementedError()
   }),
-  preserved: deviceMiddleware(async () => {
+  addUser: deviceMiddleware(async () => {
     throw new NotImplementedError()
   }),
-  routesSegments: deviceMiddleware(async () => {
+  deleteUser: deviceMiddleware(async () => {
     throw new NotImplementedError()
   }),
 })

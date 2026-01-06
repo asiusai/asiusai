@@ -1,24 +1,24 @@
 import { contract } from '../../connect/src/api/contract'
 import { NotImplementedError, tsr } from '../common'
-import { userMiddleware } from '../middleware'
+import { routeMiddleware } from '../middleware'
 
-export const prime = tsr.router(contract.prime, {
-  cancel: userMiddleware(async () => {
+export const route = tsr.router(contract.route, {
+  files: routeMiddleware(async () => {
     throw new NotImplementedError()
   }),
-  getCheckout: userMiddleware(async () => {
+  get: routeMiddleware(async () => {
     throw new NotImplementedError()
   }),
-  getPortal: userMiddleware(async () => {
+  preserve: routeMiddleware(async () => {
     throw new NotImplementedError()
   }),
-  getSession: userMiddleware(async () => {
+  setPublic: routeMiddleware(async () => {
     throw new NotImplementedError()
   }),
-  info: userMiddleware(async () => {
+  shareSignature: routeMiddleware(async () => {
     throw new NotImplementedError()
   }),
-  status: userMiddleware(async () => {
+  unPreserve: routeMiddleware(async () => {
     throw new NotImplementedError()
   }),
 })
