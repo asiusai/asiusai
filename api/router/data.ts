@@ -2,6 +2,7 @@ import { contract } from '../../connect/src/api/contract'
 import { InternalServerError, NotFoundError, tsr, UnauthorizedError } from '../common'
 import { dataMiddleware } from '../middleware'
 import { mkv } from '../mkv'
+import { processUploadedFile } from '../processing'
 
 export const data = tsr.router(contract.data, {
   get: dataMiddleware(async ({ query, headers }, { key, responseHeaders }) => {
@@ -26,6 +27,11 @@ export const data = tsr.router(contract.data, {
 
     const res = await mkv.put(key, request.body, headers)
     if (!res.ok) throw new InternalServerError()
+
+    // Process route metadata when qlog is uploaded
+    const [dongleId, ...pathParts] = key.split('/')
+    processUploadedFile(dongleId, pathParts.join('/')).catch(console.error)
+
     return { status: 201, body: undefined }
   }),
   delete: dataMiddleware(async (_, { key, permission }) => {

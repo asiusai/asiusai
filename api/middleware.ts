@@ -1,7 +1,7 @@
 import { and, eq } from 'drizzle-orm'
 import { Context, UnauthorizedError, BadRequestError, ForbiddenError, NotFoundError, verify, sign } from './common'
 import { db } from './db/client'
-import { deviceUsersTable, routesTable } from './db/schema'
+import { deviceUsersTable, devicesTable, routesTable } from './db/schema'
 import { env } from './env'
 import { Permission } from '../connect/src/types'
 
@@ -104,7 +104,9 @@ export const dataMiddleware = createMiddleware(async (req: { params: { _key: str
   if (req.query.sig) {
     const signature = verify<DataSignature>(req.query.sig, env.JWT_SECRET)
     if (!signature || signature.key !== key) throw new ForbiddenError()
-    return { ...ctx, permission: signature.permission, key }
+    const device = await db.query.devicesTable.findFirst({ where: eq(devicesTable.dongle_id, dongleId) })
+    if (!device) throw new NotFoundError()
+    return { ...ctx, identity, permission: signature.permission, key, device }
   }
 
   // if (dongleId) return { ...ctx, identity, permission: 'owner', key }
