@@ -26,7 +26,8 @@ export const data = tsr.router(contract.data, {
     if (permission !== 'owner') throw new UnauthorizedError('User only has read access')
 
     const res = await mkv.put(key, request.body, headers)
-    if (!res.ok) throw new InternalServerError()
+    // 403 means file already exists in MKV - treat as success
+    if (!res.ok && res.status !== 403) throw new InternalServerError()
 
     // Process route metadata when qlog is uploaded
     const [dongleId, ...pathParts] = key.split('/')

@@ -10,7 +10,9 @@ export const mkv = {
     if (start) qs += `&start=${start}`
     if (limit) qs += `&limit=${limit}`
     const res = await fetch(`${url(key)}?${qs}`)
-    return res.ok ? await res.json() : []
+    if (!res.ok) return []
+    const data = await res.json()
+    return data.keys ?? []
   },
 
   get: async (key: string, headers?: HeadersInit): Promise<Response> => {

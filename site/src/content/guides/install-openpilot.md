@@ -28,3 +28,13 @@ Once installed, you can access your device at:
 
 1. [comma.asius.ai](https://comma.asius.ai) - if using Comma API (default)
 2. [connect.asius.ai](https://connect.asius.ai) - if using Asius API (premium)
+
+
+## CLI on existing device
+
+echo -n "http://10.93.51.50:8080" > /data/params/d/APIHost
+echo -n "ws://10.93.51.50:8080" > /data/params/d/AthenaHost
+rm /data/params/d/DongleId 
+./system/athena/registration.py # for testing
+find /data/media/0/realdata -type f -exec setfattr -x user.upload {} + 2>/dev/null && echo "Done"
+sudo reboot

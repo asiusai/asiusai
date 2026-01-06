@@ -29,7 +29,7 @@ const saveJson = async (key: string, data: unknown): Promise<void> => {
 }
 
 const processSegmentQlog = async (dongleId: string, routeId: string, segment: number): Promise<SegmentQlogData | null> => {
-  const key = `${dongleId}/${routeId}/${segment}/qlog.zst`
+  const key = `${dongleId}/${routeId}--${segment}/qlog.zst`
   const res = await mkv.get(key)
   if (!res.ok || !res.body) return null
 
@@ -37,14 +37,14 @@ const processSegmentQlog = async (dongleId: string, routeId: string, segment: nu
 }
 
 const processSegmentQcamera = async (dongleId: string, routeId: string, segment: number): Promise<void> => {
-  const baseKey = `${dongleId}/${routeId}/${segment}`
+  const baseKey = `${dongleId}/${routeId}--${segment}`
 
   // Check if sprite already exists
   const existingSprite = await mkv.get(`${baseKey}/sprite.jpg`)
   if (existingSprite.ok) return
 
   // Try qcamera.ts first, then qcamera
-  let res = await mkv.get(`${baseKey}/qcamera.ts`)
+  const res = await mkv.get(`${baseKey}/qcamera.ts`)
   if (!res.ok || !res.body) return
 
   const sprite = await extractSprite(res.body)
@@ -55,7 +55,7 @@ const processSegmentQcamera = async (dongleId: string, routeId: string, segment:
 }
 
 export const processSegment = async (dongleId: string, routeId: string, segment: number): Promise<void> => {
-  const baseKey = `${dongleId}/${routeId}/${segment}`
+  const baseKey = `${dongleId}/${routeId}--${segment}`
 
   // Process qlog if not already done
   const existingEvents = await mkv.get(`${baseKey}/events.json`)
@@ -75,8 +75,18 @@ export const processRoute = async (dongleId: string, routeId: string): Promise<b
   const fullname = `${dongleId}|${routeId}`
 
   // Get segment count by listing files
+  // Files are stored as: /dongleId/routeId--segment/filename
+  // We need to extract segment numbers from the path
   const files = await mkv.list(`${dongleId}/${routeId}`)
-  const segments = new Set(files.map((f) => f.split('/')[0]).filter((s) => /^\d+$/.test(s)))
+  const segments = new Set(
+    files
+      .map((f) => {
+        // Extract segment from path like /dongleId/routeId--segment/filename
+        const match = f.match(new RegExp(`${routeId}--(\\d+)/`))
+        return match ? match[1] : null
+      })
+      .filter((s): s is string => s !== null),
+  )
   const segmentNumbers = Array.from(segments)
     .map(Number)
     .sort((a, b) => a - b)
@@ -92,7 +102,7 @@ export const processRoute = async (dongleId: string, routeId: string): Promise<b
     const data = await processSegmentQlog(dongleId, routeId, segment)
     if (data) {
       // Save events.json and coords.json for this segment
-      const baseKey = `${dongleId}/${routeId}/${segment}`
+      const baseKey = `${dongleId}/${routeId}--${segment}`
       await saveJson(`${baseKey}/events.json`, data.events)
       await saveJson(`${baseKey}/coords.json`, data.coords)
 
@@ -143,19 +153,25 @@ export const processRoute = async (dongleId: string, routeId: string): Promise<b
 }
 
 export const processUploadedFile = async (dongleId: string, path: string): Promise<void> => {
-  // Path format: routeId/segment/filename or routeId/filename
+  // Path format: routeId--segment/filename (e.g., 00000033--5a810099dc--0/qlog.zst)
   const parts = path.split('/')
   if (parts.length < 2) return
 
-  const routeId = parts[0]
+  const folder = parts[0]
 
-  // Only process on qlog upload (first segment triggers route creation)
+  // Only process on qlog upload
   const filename = parts[parts.length - 1]
   if (filename !== 'qlog.zst' && filename !== 'qlog') return
 
-  // Check if this looks like a route ID
-  // Formats: 2024-01-01--12-34-56 (date) or 00000031--2b1a66d680 (hex)
-  if (!/^(\d{4}-\d{2}-\d{2}--\d{2}-\d{2}-\d{2}|[0-9a-f]{8}--[0-9a-f]{10})/.test(routeId)) return
+  // Extract routeId from folder (remove segment suffix)
+  // Formats: 2024-01-01--12-34-56--0 or 00000033--5a810099dc--0
+  const match = folder.match(/^(.+)--(\d+)$/)
+  if (!match) return
+
+  const routeId = match[1]
+
+  // Validate routeId format
+  if (!/^(\d{4}-\d{2}-\d{2}--\d{2}-\d{2}-\d{2}|[0-9a-f]{8}--[0-9a-f]{10})$/.test(routeId)) return
 
   await processRoute(dongleId, routeId)
 }

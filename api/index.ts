@@ -59,7 +59,7 @@ const server = Bun.serve({
       return new Response(`Server error: ${e}`, { status: 500 })
     })
     console[res && res.status >= 400 ? 'error' : 'log'](
-      req.method.padEnd(4),
+      req.method.padEnd(5),
       res?.status ?? 200,
       (identity ? `${identity.type}(${identity.id})` : '-').padEnd(24),
       req.url.split('?')[0],

@@ -17,15 +17,17 @@ const getLogUrls = async (dongleId: string, type: 'boot' | 'crash', origin: stri
     return `${origin}/connectdata/${key}?sig=${sig}`
   })
 }
-
 export const deviceDataToDevice = async (device: DeviceData, identity: Identity): Promise<Device> => {
-  const lastPing = await db.query.athenaPingsTable.findFirst({ orderBy: desc(athenaPingsTable.create_time) })
+  const lastPing = await db.query.athenaPingsTable.findFirst({
+    where: eq(athenaPingsTable.dongle_id, device.dongle_id),
+    orderBy: desc(athenaPingsTable.create_time),
+  })
   const owner = await db.query.deviceUsersTable.findFirst({
     where: and(eq(deviceUsersTable.dongle_id, device.dongle_id), eq(deviceUsersTable.permission, 'owner')),
   })
   return {
     ...device,
-    last_athena_ping: lastPing?.create_time.getTime() ?? device.create_time.getTime(),
+    last_athena_ping: Math.round((lastPing?.create_time.getTime() ?? device.create_time.getTime()) / 1000),
     is_paired: !!owner,
     is_owner: identity.type === 'device' || owner?.user_id === identity.user.id,
     // prime
