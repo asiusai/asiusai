@@ -18,7 +18,7 @@ const findOrCreateUser = async (email: string) => {
 }
 
 export const auth = tsr.router(contract.auth, {
-  auth: noMiddleware(async ({ body }, { origin }) => {
+  auth: noMiddleware(async ({ body }) => {
     if (body.provider !== 'google') throw new BadRequestError()
 
     const res1 = await fetch('https://oauth2.googleapis.com/token', {
@@ -28,7 +28,7 @@ export const auth = tsr.router(contract.auth, {
         code: body.code,
         client_id: env.GOOGLE_CLIENT_ID,
         client_secret: env.GOOGLE_CLIENT_SECRET,
-        redirect_uri: `${origin}/v2/auth/g/redirect/`,
+        redirect_uri: 'https://api.asius.ai/v2/auth/g/redirect/',
         grant_type: 'authorization_code',
       }),
     })

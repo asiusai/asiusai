@@ -62,40 +62,45 @@ deployProxy('api.konik.ai', 'api-konik-proxy')
 deployProxy('athena.comma.ai', 'athena-comma-proxy')
 deployProxy('billing.comma.ai', 'billing-comma-proxy')
 
-// ------------------------- COMMA CONNECT -------------------------
-const comma = new cloudflare.PagesProject('comma-connect', {
-  accountId: ACCOUNT_ID,
-  name: 'comma-connect',
-  productionBranch: 'master',
-  buildConfig: {
-    buildCommand: 'bun i && bun run --bun vite build --mode comma',
-    destinationDir: 'dist',
-  },
-  source: {
-    type: 'github',
-    config: {
-      owner: 'asiusai',
-      repoName: 'connect',
-      prCommentsEnabled: true,
+// ------------------------- CONNECT APPS -------------------------
+const deployConnect = (name: string, mode: string, subdomain: string) => {
+  const project = new cloudflare.PagesProject(`${name}-connect`, {
+    accountId: ACCOUNT_ID,
+    name: `${name}-connect`,
+    productionBranch: 'master',
+    buildConfig: {
+      buildCommand: `bun i && bun run --bun vite build --mode ${mode}`,
+      destinationDir: 'dist',
     },
-  },
-})
+    source: {
+      type: 'github',
+      config: { owner: 'asiusai', repoName: 'connect', prCommentsEnabled: true },
+    },
+  })
 
-new cloudflare.PagesDomain('comma-connect-domain', {
-  accountId: ACCOUNT_ID,
-  projectName: comma.name,
-  name: 'comma.asius.ai',
-})
+  new cloudflare.PagesDomain(`${name}-connect-domain`, {
+    accountId: ACCOUNT_ID,
+    projectName: project.name,
+    name: `${subdomain}.asius.ai`,
+  })
 
-new cloudflare.DnsRecord('comma-connect-dns', {
-  zoneId: ASIUS_ZONE_ID,
-  name: 'comma',
-  type: 'CNAME',
-  content: 'comma-connect.pages.dev',
-  proxied: true,
-  ttl: 1,
-})
+  new cloudflare.DnsRecord(`${name}-connect-dns`, {
+    zoneId: ASIUS_ZONE_ID,
+    name: subdomain,
+    type: 'CNAME',
+    content: `${name}-connect.pages.dev`,
+    proxied: true,
+    ttl: 1,
+  })
 
+  return project
+}
+
+const comma = deployConnect('comma', 'comma', 'comma')
+deployConnect('konik', 'konik', 'konik')
+deployConnect('asius', 'asius', 'connect')
+
+// Extra domains for comma connect
 new cloudflare.PagesDomain('new-connect-domain', {
   accountId: ACCOUNT_ID,
   projectName: comma.name,
@@ -107,74 +112,6 @@ new cloudflare.DnsRecord('new-connect-dns', {
   name: '@',
   type: 'CNAME',
   content: 'comma-connect.pages.dev',
-  proxied: true,
-  ttl: 1,
-})
-
-// ------------------------- KONIK CONNECT -------------------------
-const konik = new cloudflare.PagesProject('konik-connect', {
-  accountId: ACCOUNT_ID,
-  name: 'konik-connect',
-  productionBranch: 'master',
-  buildConfig: {
-    buildCommand: 'bun i && bun run --bun vite build --mode konik',
-    destinationDir: 'dist',
-  },
-  source: {
-    type: 'github',
-    config: {
-      owner: 'asiusai',
-      repoName: 'connect',
-      prCommentsEnabled: true,
-    },
-  },
-})
-
-new cloudflare.PagesDomain('konik-connect-domain', {
-  accountId: ACCOUNT_ID,
-  projectName: konik.name,
-  name: 'konik.asius.ai',
-})
-
-new cloudflare.DnsRecord('konik-connect-dns', {
-  zoneId: ASIUS_ZONE_ID,
-  name: 'konik',
-  type: 'CNAME',
-  content: 'konik-connect.pages.dev',
-  proxied: true,
-  ttl: 1,
-})
-
-// ------------------------- ASIUS CONNECT -------------------------
-const connect = new cloudflare.PagesProject('asius-connect', {
-  accountId: ACCOUNT_ID,
-  name: 'asius-connect',
-  productionBranch: 'master',
-  buildConfig: {
-    buildCommand: 'bun i && bun run --bun vite build --mode asius',
-    destinationDir: 'dist',
-  },
-  source: {
-    type: 'github',
-    config: {
-      owner: 'asiusai',
-      repoName: 'connect',
-      prCommentsEnabled: true,
-    },
-  },
-})
-
-new cloudflare.PagesDomain('asius-connect-domain', {
-  accountId: ACCOUNT_ID,
-  projectName: connect.name,
-  name: 'connect.asius.ai',
-})
-
-new cloudflare.DnsRecord('asius-connect-dns', {
-  zoneId: ASIUS_ZONE_ID,
-  name: 'connect',
-  type: 'CNAME',
-  content: 'asius-connect.pages.dev',
   proxied: true,
   ttl: 1,
 })
@@ -298,12 +235,20 @@ new cloudflare.DnsRecord('api-dns', {
   ttl: 1,
 })
 
-// Storage Box usernames - add server's SSH public key to each Storage Box in Hetzner Console
-const storageBoxes = ['u526268', 'u526270'] // TODO: replace with your actual usernames
-
+// Storage Box usernames
+const storageBoxes = ['u526268', 'u526270']
 const sshPrivateKey = config.requireSecret('sshPrivateKey')
 
-const cmd = pulumi.interpolate`set -e
+// One-time server setup: install sshfs, mount storage boxes
+const serverSetup = new command.remote.Command(
+  'server-setup',
+  {
+    connection: {
+      host: apiServer.ipv4Address,
+      user: 'root',
+      privateKey: sshPrivateKey,
+    },
+    create: pulumi.interpolate`set -e
 
 # Install SSH key for Storage Box access
 mkdir -p ~/.ssh
@@ -312,8 +257,8 @@ ${sshPrivateKey}
 SSHKEY
 chmod 600 ~/.ssh/id_rsa
 
-# Install sshfs for mounting Storage Boxes
-apt-get update && apt-get install -y sshfs nginx golang-go unzip
+# Install sshfs
+apt-get update && apt-get install -y sshfs
 
 # Mount Storage Boxes via SSHFS
 ${storageBoxes
@@ -325,64 +270,64 @@ grep -q "mkv${i}" /etc/fstab || echo "${user}@${user}.your-storagebox.de: /mnt/m
   )
   .join('\n')}
 
-# Clone/update repo
-cd /root
-[ -d asiusai ] || git clone https://github.com/asiusai/asiusai.git
-cd asiusai
-git pull
-git submodule update --init connect minikeyvalue
-
-# Install bun
-curl -fsSL https://bun.sh/install | bash
-export PATH="/root/.bun/bin:$PATH"
-
-# Build minikeyvalue
-cd minikeyvalue/src && go build -o mkv && cd ../..
-
-# Install API dependencies
-bun install
-
-# Stop existing services
-docker stop api 2>/dev/null || true
-docker rm api 2>/dev/null || true
-systemctl stop mkv-vol0 mkv-vol1 mkv-master api nginx 2>/dev/null || true
-systemctl disable mkv-vol0 mkv-vol1 mkv-master nginx 2>/dev/null || true
-
-# Create systemd service
-cat > /etc/systemd/system/api.service << 'EOF'
-[Unit]
-Description=Asius API
-After=network.target
-[Service]
-WorkingDirectory=/root/asiusai/api
-Environment=PORT=80
-Environment=MKV_VOLUMES=${storageBoxes.map((_, i) => `/mnt/mkv${i}`).join(',')}
-Environment=MKV_DB=/root/mkvdb
-Environment=API_URL=https://api.asius.ai
-Environment=BUN_INSTALL=/root/.bun
-Environment=PATH=/root/.bun/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-ExecStart=/root/.bun/bin/bun run index.ts
-Restart=always
-[Install]
-WantedBy=multi-user.target
-EOF
-
-# Reload and start
+# Create data directories
 mkdir -p /root/mkvdb
-systemctl daemon-reload
-systemctl enable api
-systemctl restart api`
+touch /root/data.db
 
-new command.remote.Command(
-  'api-deploy',
+# Stop old services if any
+systemctl stop api 2>/dev/null || true
+systemctl disable api 2>/dev/null || true
+`,
+  },
+  { dependsOn: [apiServer] },
+)
+
+// Container image name
+const IMAGE = 'ghcr.io/asiusai/api:latest'
+
+// Build and push Docker image to GitHub Container Registry
+const buildAndPush = new command.local.Command('build-and-push', {
+  create: `docker build --platform linux/amd64 -t ${IMAGE} . && docker push ${IMAGE}`,
+  dir: join(__dirname, '..'),
+  triggers: [Date.now()],
+})
+
+// Start container with secrets from Pulumi config
+const startContainer = new command.remote.Command(
+  'start-container',
   {
     connection: {
       host: apiServer.ipv4Address,
       user: 'root',
-      privateKey: config.requireSecret('sshPrivateKey'),
+      privateKey: sshPrivateKey,
     },
-    create: cmd,
-    triggers: [Date.now()],
+    create: pulumi.interpolate`
+echo '${config.requireSecret('ghToken')}' | docker login ghcr.io -u asiusai --password-stdin
+docker pull ${IMAGE}
+docker stop asius-api 2>/dev/null || true
+docker rm asius-api 2>/dev/null || true
+docker run -d \
+  --name asius-api \
+  --restart always \
+  -p 80:80 \
+  -v /mnt/mkv0:/mnt/mkv0 \
+  -v /mnt/mkv1:/mnt/mkv1 \
+  -v /root/mkvdb:/data/mkvdb \
+  -v /root/data.db:/data/data.db \
+  -e PORT=80 \
+  -e MKV_VOLUMES=/mnt/mkv0,/mnt/mkv1 \
+  -e MKV_DB=/data/mkvdb \
+  -e DB_URL=file:///data/data.db \
+  -e JWT_SECRET='${config.requireSecret('jwtSecret')}' \
+  -e GOOGLE_CLIENT_ID='${config.requireSecret('googleClientId')}' \
+  -e GOOGLE_CLIENT_SECRET='${config.requireSecret('googleClientSecret')}' \
+  ${IMAGE}
+sleep 5
+docker logs asius-api --tail 50
+`,
+    triggers: [buildAndPush.stdout],
   },
-  { dependsOn: [apiServer] },
+  { dependsOn: [buildAndPush, serverSetup] },
 )
+
+export const containerLogs = startContainer.stdout

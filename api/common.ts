@@ -7,10 +7,20 @@ import { Identity } from './auth'
 export type Context = { identity?: Identity; origin: string }
 export const tsr = tsrest.platformContext<Context>()
 
+const normalizePem = (key: string) => {
+  if (!key.includes('-----BEGIN') || key.includes('\n')) return key
+  // PEM keys may have spaces instead of newlines after URL decoding
+  // Extract header, body, footer
+  const match = key.match(/^(-----BEGIN [A-Z ]+-----) (.+) (-----END [A-Z ]+-----)$/)
+  if (!match) return key
+  const [, header, body, footer] = match
+  return `${header}\n${body.replace(/ /g, '\n')}\n${footer}`
+}
+
 export const verify = <T extends string | object>(token: string | undefined, key: string) => {
   if (!token) return
   try {
-    return jwt.verify(token, key) as T
+    return jwt.verify(token, normalizePem(key)) as T
   } catch {
     return
   }

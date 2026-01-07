@@ -14,6 +14,9 @@ const headers = {
 const handle = async (req: Request, server: Bun.Server<WebSocketData>, identity?: Identity): Promise<Response | undefined> => {
   const url = new URL(req.url)
 
+  // HEALTH
+  if (url.pathname === '/health') return Response.json({ status: 'ok' }, { headers })
+
   // SWAGGER
   if (url.pathname === '/') return new Response(swaggerHtml, { headers: { ...headers, 'Content-Type': 'text/html' } })
   if (url.pathname === '/openapi.json') return Response.json(openApiDoc, { headers })

@@ -9,3 +9,11 @@ config:
     secure: v1:z3SscIwif2W9d9r/:XawpJ6IrVUIgZl6pOvdQPAaUtTJC5djQIHdD2ufJXDG4KsixaCD9H62OB/dgAkm+EcSNCrP/34JD7Fa1BnuEZpLjTkvBiA1DgCYtQUzs158=
   asius:sshPrivateKey:
     secure: v1:PSbmSySqVAxftfTq:1/TM1UsHbVwRO0dNqz5zIFDtO3SViGRe3mrLlSw7pw20FJs/M7v2jK5UCC2ujdvHmqA1b7OQG4m4b8kQAxgdvvk4WK9TRkGQWmN/LfduhT7RsUb5AKk1mQPisrxBp34QPhfFzgOayQbLjIWLtsnXA571mns0GbTBOJEOHfG+I5OXv1D/ZFZhaTc9DGwRiE0UB+wSwR3CaA9ekc+4U1pG9W3Qhm1t1XJt6QLaEJlUmtnR+aV4TRRPXz29KiYvqBmcsUhWgaW7bk4DJEA3zAX0OREDMCOqZtFdFqyiicKnsQeCoyg152bo/SV9RpRk2NnxwxZM7wTykc5w5f6f1PWH2wOM9dZmdXOFPLoNkQYmwOQzfcLYRxhhxnT3CY7P+xLOGV6sFI2hmTPmXAf3L0/EUjQpk2b6EB6CW3WnZ+k+IPHM9SNpwnZdieZLnIWdP5YVnmbGx1ZPYnobwQ6HNLOv4sShpQLVD3/Kamzz1sK5FuiInnpXL6iW02945QX51I1csm/hNHIoMFQ36VR5BZNrD08xFpoDLKlS/++te6mv
+  asius:jwtSecret:
+    secure: v1:5/+TX+51XCMKrY/G:gDNSj6aRdJM3zqsA+wwi8Mkc8oST/STk5QmZ+hSjSJVBnZrYhofTg8hq26uOXAAXyOmdCLly0sxX+lj5yjp3fx/0UK4DtMsMv1VKa6K9wD0=
+  asius:googleClientId:
+    secure: v1:Rats/++pDp20QCoy:HHTlMyAt+PuE5194/OJP9ZSp/qwgf27ySgCJD4WLAmVtz63tB5CyBttrM31YGebW+8r+6TElagx9zRj0Z0ITzVK2lQd6ZvBH1rBdt2hNX0JtVbpZWKGmkQ==
+  asius:googleClientSecret:
+    secure: v1:z2hPjQOl6gjlB+ci:YcQ4Z2m5Nmzvdqswt9RFlZQbIN5d8looqKpevnTyNRoGkvnAgXgzAdMjQDFy1NbpUwso
+  asius:ghToken:
+    secure: v1:hAEvKd9q2/qfIKE/:ERzmxS+BBVmraivjt68ghf5Riqo1ROZmAPST2DYhDBpQ3RuunnF9Z6+gkOioCtax6uWb3PnUcTc=

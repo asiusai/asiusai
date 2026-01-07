@@ -30,9 +30,9 @@ export const devices = tsr.routerWithMiddleware(contract.devices)<{ userId?: str
   }),
   register: noMiddleware(async ({ query: { public_key, register_token, ...info } }) => {
     const data = verify<{ register: boolean; exp: number }>(register_token, public_key)
-    if (!data?.register) throw new BadRequestError()
+    if (!data?.register) throw new BadRequestError('Token verification failed')
 
-    // Checking if device alread has registered
+    // Checking if device already has registered
     const device = await db.query.devicesTable.findFirst({ where: eq(devicesTable.public_key, public_key) })
     if (device) {
       await db.update(devicesTable).set(info).where(eq(devicesTable.dongle_id, device.dongle_id))
