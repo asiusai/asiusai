@@ -287,7 +287,7 @@ const IMAGE = 'ghcr.io/asiusai/api:latest'
 
 // Build and push Docker image to GitHub Container Registry
 const buildAndPush = new command.local.Command('build-and-push', {
-  create: `docker build --platform linux/amd64 -t ${IMAGE} . && docker push ${IMAGE}`,
+  create: pulumi.interpolate`echo '${config.requireSecret('ghToken')}' | docker login ghcr.io -u asiusai --password-stdin && docker build --platform linux/amd64 -t ${IMAGE} . && docker push ${IMAGE}`,
   dir: join(__dirname, '..'),
   triggers: [Date.now()],
 })
