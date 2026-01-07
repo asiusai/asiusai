@@ -14,7 +14,7 @@ const findOrCreateUser = async (email: string) => {
   const id = randomId()
   const user = { id, email, user_id: id }
   await db.insert(usersTable).values(user)
-  return { ...user, regdate: new Date(), superuser: false, username: null }
+  return { ...user, regdate: Date.now(), superuser: false, username: null }
 }
 
 export const auth = tsr.router(contract.auth, {
@@ -56,6 +56,6 @@ export const auth = tsr.router(contract.auth, {
     return { status: 302, body: undefined }
   }),
   me: userMiddleware(async (_, { identity }) => {
-    return { status: 200, body: { ...identity.user, regdate: identity.user.regdate.getTime() } }
+    return { status: 200, body: { ...identity.user, regdate: identity.user.regdate } }
   }),
 })

@@ -2,8 +2,9 @@ import { and, desc, eq, gte, sql, sum } from 'drizzle-orm'
 import { contract } from '../../connect/src/api/contract'
 import { ForbiddenError, InternalServerError, tsr } from '../common'
 import { db } from '../db/client'
-import { athenaPingsTable, DeviceData, devicesTable, deviceUsersTable, routesTable } from '../db/schema'
+import { athenaPingsTable, DeviceData, devicesTable, deviceUsersTable, segmentsTable } from '../db/schema'
 import { createDataSignature, deviceMiddleware } from '../middleware'
+import { normalizeDataKey } from '../common'
 import { Device } from '../../connect/src/types'
 import { Identity } from '../auth'
 import { getOfflineQueue } from '../ws'
@@ -27,7 +28,7 @@ export const deviceDataToDevice = async (device: DeviceData, identity: Identity)
   })
   return {
     ...device,
-    last_athena_ping: Math.round((lastPing?.create_time.getTime() ?? device.create_time.getTime()) / 1000),
+    last_athena_ping: Math.round((lastPing?.create_time ?? device.create_time) / 1000),
     is_paired: !!owner,
     is_owner: identity.type === 'device' || owner?.user_id === identity.user.id,
     // prime
@@ -53,17 +54,18 @@ export const device = tsr.routerWithMiddleware(contract.device)<{ userId?: strin
     return { status: 200, body: await getLogUrls(device.dongle_id, 'crash', origin) }
   }),
   location: deviceMiddleware(async (_, { device }) => {
-    const lastRoute = await db.query.routesTable.findFirst({
-      where: eq(routesTable.dongle_id, device.dongle_id),
-      orderBy: desc(routesTable.create_time),
+    // Get the most recent segment for location
+    const lastSegment = await db.query.segmentsTable.findFirst({
+      where: eq(segmentsTable.dongle_id, device.dongle_id),
+      orderBy: desc(segmentsTable.create_time),
     })
     return {
       status: 200,
       body: {
         dongle_id: device.dongle_id,
-        lat: lastRoute?.end_lat ?? lastRoute?.start_lat ?? 0,
-        lng: lastRoute?.end_lng ?? lastRoute?.start_lng ?? 0,
-        time: lastRoute?.end_time ? new Date(lastRoute.end_time).getTime() : 0,
+        lat: lastSegment?.end_lat ?? lastSegment?.start_lat ?? 0,
+        lng: lastSegment?.end_lng ?? lastSegment?.start_lng ?? 0,
+        time: lastSegment?.end_time ?? 0,
         accuracy: 0,
         bearing: 0,
         speed: 0,
@@ -71,23 +73,24 @@ export const device = tsr.routerWithMiddleware(contract.device)<{ userId?: strin
     }
   }),
   stats: deviceMiddleware(async (_, { device }) => {
-    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+    const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000
 
+    // Count distinct routes and sum distance from segments
     const allStats = await db
       .select({
-        routes: sql<number>`count(*)`,
-        distance: sum(routesTable.distance),
+        routes: sql<number>`count(distinct ${segmentsTable.route_id})`,
+        distance: sum(segmentsTable.distance),
       })
-      .from(routesTable)
-      .where(eq(routesTable.dongle_id, device.dongle_id))
+      .from(segmentsTable)
+      .where(eq(segmentsTable.dongle_id, device.dongle_id))
 
     const weekStats = await db
       .select({
-        routes: sql<number>`count(*)`,
-        distance: sum(routesTable.distance),
+        routes: sql<number>`count(distinct ${segmentsTable.route_id})`,
+        distance: sum(segmentsTable.distance),
       })
-      .from(routesTable)
-      .where(and(eq(routesTable.dongle_id, device.dongle_id), gte(routesTable.create_time, weekAgo)))
+      .from(segmentsTable)
+      .where(and(eq(segmentsTable.dongle_id, device.dongle_id), gte(segmentsTable.create_time, weekAgo)))
 
     return {
       status: 200,
@@ -124,7 +127,7 @@ export const device = tsr.routerWithMiddleware(contract.device)<{ userId?: strin
     return {
       status: 200,
       body: body.paths.map((path) => {
-        const key = `${params.dongleId}/${path}`
+        const key = normalizeDataKey(`${params.dongleId}/${path}`)
         const sig = createDataSignature(key, 'owner', body.expiry_days ? body.expiry_days * 60 * 60 * 24 : undefined)
         return { url: `${origin}/connectdata/${key}?sig=${sig}`, headers: {} }
       }),
@@ -133,7 +136,7 @@ export const device = tsr.routerWithMiddleware(contract.device)<{ userId?: strin
   getUploadUrl: deviceMiddleware(async ({ params, query }, { origin, permission }) => {
     if (permission !== 'owner') throw new ForbiddenError()
 
-    const key = `${params.dongleId}/${query.path}`
+    const key = normalizeDataKey(`${params.dongleId}/${query.path}`)
     const sig = createDataSignature(key, 'owner', query.expiry_days ? query.expiry_days * 60 * 60 * 24 : undefined)
     return { status: 200, body: { url: `${origin}/connectdata/${key}?sig=${sig}`, headers: {} } }
   }),

@@ -24,8 +24,8 @@ export const sendToDevice = async (
 
   if (!ws) {
     // Device offline - add to queue if method has expiry
-    const expiry = params?.expiry ? new Date(params.expiry * 1000) : null
-    if (expiry && expiry > new Date()) {
+    const expiry = params?.expiry ? params.expiry * 1000 : null
+    if (expiry && expiry > Date.now()) {
       await db.insert(athenaQueueTable).values({
         id: randomId(),
         dongle_id: dongleId,
@@ -54,7 +54,7 @@ export const sendToDevice = async (
 }
 
 const processOfflineQueue = async (ws: Bun.ServerWebSocket<WebSocketData>) => {
-  const now = new Date()
+  const now = Date.now()
   const queuedRequests = await db.query.athenaQueueTable.findMany({
     where: and(eq(athenaQueueTable.dongle_id, ws.data.dongleId), gt(athenaQueueTable.expiry, now)),
   })
@@ -112,7 +112,7 @@ export const websocket: Bun.WebSocketHandler<WebSocketData> = {
 }
 
 export const getOfflineQueue = async (dongleId: string) => {
-  const now = new Date()
+  const now = Date.now()
   const queuedRequests = await db.query.athenaQueueTable.findMany({
     where: and(eq(athenaQueueTable.dongle_id, dongleId), gt(athenaQueueTable.expiry, now)),
   })
@@ -122,6 +122,6 @@ export const getOfflineQueue = async (dongleId: string) => {
     jsonrpc: '2.0' as const,
     method: req.method,
     params: JSON.parse(req.params),
-    expiry: req.expiry ? Math.floor(req.expiry.getTime() / 1000) : undefined,
+    expiry: req.expiry ? Math.floor(req.expiry / 1000) : undefined,
   }))
 }

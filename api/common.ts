@@ -68,3 +68,24 @@ export const randomId = () => {
   crypto.getRandomValues(bytes)
   return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')
 }
+
+// Normalize path from device format (routeId--segment/file) to comma format (routeId/segment/file)
+// e.g. "dongleId/2025-01-07--12-00-00--0/qlog.zst" -> "dongleId/2025-01-07--12-00-00/0/qlog.zst"
+export const normalizeDataKey = (key: string): string => {
+  const parts = key.split('/')
+  if (parts.length < 2) return key
+
+  const [dongleId, segmentDir, ...rest] = parts
+  if (!segmentDir) return key
+
+  const lastDash = segmentDir.lastIndexOf('--')
+  if (lastDash === -1) return key
+
+  const routeId = segmentDir.slice(0, lastDash)
+  const segment = segmentDir.slice(lastDash + 2)
+
+  // Only normalize if segment is a number
+  if (!/^\d+$/.test(segment)) return key
+
+  return [dongleId, routeId, segment, ...rest].join('/')
+}

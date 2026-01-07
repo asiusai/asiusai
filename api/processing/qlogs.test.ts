@@ -12,7 +12,11 @@ describe('qlogs', () => {
         git_commit: string
         git_branch: string
         git_remote: string
+        git_commit_date: string
         git_dirty: boolean
+        platform: string
+        vin: string
+        make: string
         start_lat: number
         start_lng: number
         end_lat: number
@@ -20,7 +24,16 @@ describe('qlogs', () => {
         distance: number
       }
 
-      let metadata: { version?: string; gitCommit?: string; gitBranch?: string; gitRemote?: string; gitDirty?: boolean } | null = null
+      let metadata: {
+        version?: string
+        gitCommit?: string
+        gitBranch?: string
+        gitRemote?: string
+        gitCommitDate?: string
+        gitDirty?: boolean
+        vin?: string
+        carFingerprint?: string
+      } | null = null
       let firstGps: { Latitude?: number; Longitude?: number } | null = null
       let lastGps: { Latitude?: number; Longitude?: number } | null = null
       let totalDistance = 0
@@ -41,7 +54,12 @@ describe('qlogs', () => {
       expect(metadata?.gitCommit).toBe(expected.git_commit)
       expect(metadata?.gitBranch).toBe(expected.git_branch)
       expect(metadata?.gitRemote?.replace('https://', '')).toBe(expected.git_remote)
+      expect(metadata?.gitCommitDate).toBe(expected.git_commit_date)
       expect(metadata?.gitDirty).toBe(expected.git_dirty)
+      expect(metadata?.carFingerprint).toBe(expected.platform)
+      expect(metadata?.vin).toBe(expected.vin)
+      // make is derived from platform (first part before _)
+      expect(metadata?.carFingerprint?.split('_')[0]?.toLowerCase()).toBe(expected.make)
 
       // Check GPS start/end coordinates (2 decimal places = ~1km accuracy)
       expect(firstGps?.Latitude).toBeCloseTo(expected.start_lat, 2)

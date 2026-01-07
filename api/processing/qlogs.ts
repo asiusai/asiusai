@@ -10,9 +10,16 @@ type InitData = {
   GitCommit?: string
   GitBranch?: string
   GitRemote?: string
+  GitCommitDate?: string
   Dirty?: boolean
   DongleId?: string
+  DeviceType?: number
   Params?: { Entries?: ParamEntry[] }
+}
+
+type CarParams = {
+  CarFingerprint?: string
+  CarVin?: string
 }
 
 type GpsLocation = {
@@ -59,13 +66,10 @@ export type RouteMetadata = {
   gitCommit?: string
   gitBranch?: string
   gitRemote?: string
+  gitCommitDate?: string
   gitDirty?: boolean
-  startLat?: number
-  startLng?: number
-  startTime?: string
-  endLat?: number
-  endLng?: number
-  endTime?: string
+  vin?: string
+  carFingerprint?: string // Platform (e.g., TESLA_MODEL_3)
 }
 
 export type SegmentQlogData = {
@@ -113,6 +117,16 @@ export const processQlogStream = async (
           metadata.gitCommit = init.GitCommit
           metadata.gitBranch = init.GitBranch
           metadata.gitRemote = init.GitRemote
+          // GitCommitDate format: "'1762565860 2025-11-07 20:37:40 -0500'" -> parse to ISO UTC
+          if (init.GitCommitDate) {
+            const match = init.GitCommitDate.match(/(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2}) ([+-])(\d{2})(\d{2})/)
+            if (match) {
+              const [, date, time, sign, tzH, tzM] = match
+              // Parse as UTC with explicit offset
+              const utcDate = new Date(`${date}T${time}${sign}${tzH}:${tzM}`)
+              metadata.gitCommitDate = utcDate.toISOString().slice(0, 19)
+            }
+          }
           metadata.gitDirty = init.Dirty
         }
 
@@ -123,6 +137,13 @@ export const processQlogStream = async (
             recordFrontValue = recordFrontParam.Value === '1'
           }
         }
+      }
+
+      // Extract car params (VIN, fingerprint)
+      if ('CarParams' in event && segment === 0) {
+        const car = event.CarParams as CarParams
+        metadata.vin = car.CarVin
+        metadata.carFingerprint = car.CarFingerprint
       }
 
       // Track first PandaStates time for record_front_toggle event

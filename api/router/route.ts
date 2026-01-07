@@ -1,39 +1,54 @@
-import { eq } from 'drizzle-orm'
 import { contract } from '../../connect/src/api/contract'
-import { ForbiddenError, InternalServerError, tsr } from '../common'
+import { ForbiddenError, NotFoundError, tsr } from '../common'
 import { db } from '../db/client'
-import { routesTable, RouteData } from '../db/schema'
+import { routeSettingsTable } from '../db/schema'
 import { createDataSignature, createRouteSignature, routeMiddleware } from '../middleware'
-import { Route, Files } from '../../connect/src/types'
+import { Files } from '../../connect/src/types'
 import { mkv } from '../mkv'
-
-const routeDataToRoute = (data: RouteData): Route => ({
-  ...data,
-  create_time: data.create_time.getTime(),
-})
 
 export const route = tsr.router(contract.route, {
   get: routeMiddleware(async (_, { route }) => {
-    return { status: 200, body: routeDataToRoute(route) }
+    return { status: 200, body: route }
+  }),
+  derived: routeMiddleware(async ({ params }, { route }) => {
+    const routeId = route.fullname.split('|')[1]
+    const key = `${route.dongle_id}/${routeId}/${params.segment}/${params.file}`
+    const res = await mkv.get(key)
+    if (!res.ok) throw new NotFoundError()
+
+    return { status: 200, body: await res.blob() }
   }),
   setPublic: routeMiddleware(async ({ body }, { route, permission }) => {
     if (permission !== 'owner') throw new ForbiddenError()
+    const routeId = route.fullname.split('|')[1]
 
-    const updated = await db.update(routesTable).set({ is_public: body.is_public }).where(eq(routesTable.fullname, route.fullname)).returning()
-    if (updated.length !== 1) throw new InternalServerError()
+    await db
+      .insert(routeSettingsTable)
+      .values({ dongle_id: route.dongle_id, route_id: routeId, is_public: body.is_public })
+      .onConflictDoUpdate({ target: [routeSettingsTable.dongle_id, routeSettingsTable.route_id], set: { is_public: body.is_public } })
 
-    return { status: 200, body: routeDataToRoute(updated[0]) }
+    return { status: 200, body: { ...route, is_public: body.is_public } }
   }),
   preserve: routeMiddleware(async (_, { route, permission }) => {
     if (permission !== 'owner') throw new ForbiddenError()
+    const routeId = route.fullname.split('|')[1]
 
-    await db.update(routesTable).set({ is_preserved: true }).where(eq(routesTable.fullname, route.fullname))
+    await db
+      .insert(routeSettingsTable)
+      .values({ dongle_id: route.dongle_id, route_id: routeId, is_preserved: true })
+      .onConflictDoUpdate({ target: [routeSettingsTable.dongle_id, routeSettingsTable.route_id], set: { is_preserved: true } })
+
     return { status: 200, body: { success: 1 } }
   }),
   unPreserve: routeMiddleware(async (_, { route, permission }) => {
     if (permission !== 'owner') throw new ForbiddenError()
+    const routeId = route.fullname.split('|')[1]
 
-    await db.update(routesTable).set({ is_preserved: false }).where(eq(routesTable.fullname, route.fullname))
+    await db
+      .insert(routeSettingsTable)
+      .values({ dongle_id: route.dongle_id, route_id: routeId, is_preserved: false })
+      .onConflictDoUpdate({ target: [routeSettingsTable.dongle_id, routeSettingsTable.route_id], set: { is_preserved: false } })
+
     return { status: 200, body: { success: 1 } }
   }),
   shareSignature: routeMiddleware(async (_, { route }) => {
@@ -45,8 +60,8 @@ export const route = tsr.router(contract.route, {
   }),
   files: routeMiddleware(async (_, { route, origin }) => {
     const routeId = route.fullname.split('|')[1]
-    const key = `${route.dongle_id}/${routeId}`
-    const existingFiles = await mkv.list(key)
+    const prefix = `${route.dongle_id}/${routeId}`
+    const existingFiles = await mkv.list(prefix)
 
     const files: Files = {
       cameras: [],
@@ -66,17 +81,18 @@ export const route = tsr.router(contract.route, {
       'qlog.zst': 'qlogs',
     }
 
+    // Files are stored as: /dongleId/routeId/segment/filename
+    // e.g. /2fde85940920ed77/2025-01-07--12-00-00/0/qlog.zst
     for (const file of existingFiles) {
-      const parts = file.split('/')
-      if (parts.length !== 2) continue
+      const filename = file.split('/').pop()
+      if (!filename) continue
 
-      const [segment, filename] = parts
       const fileType = fileMap[filename]
       if (!fileType) continue
 
-      const segKey = `${key}/${segment}`
-      const segSig = createDataSignature(segKey, 'read_access', 24 * 60 * 60)
-      files[fileType].push(`${origin}/connectdata/${segKey}/${filename}?sig=${segSig}`)
+      const key = file.startsWith('/') ? file.slice(1) : file
+      const segSig = createDataSignature(key, 'read_access', 24 * 60 * 60)
+      files[fileType].push(`${origin}/connectdata/${key}?sig=${segSig}`)
     }
 
     return { status: 200, body: files }

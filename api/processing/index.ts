@@ -1,26 +1,8 @@
-import { eq } from 'drizzle-orm'
 import { db } from '../db/client'
-import { routesTable } from '../db/schema'
+import { segmentsTable } from '../db/schema'
 import { mkv } from '../mkv'
 import { processQlogStream, type SegmentQlogData } from './qlogs'
 import { extractSprite } from './qcamera'
-
-type GpsLocation = {
-  Latitude?: number
-  Longitude?: number
-  Speed?: number
-  UnixTimestampMillis?: string
-}
-
-type RouteMetadata = {
-  dongleId: string
-  routeId: string
-  version?: string
-  gitCommit?: string
-  gitBranch?: string
-  gitRemote?: string
-  gitDirty?: boolean
-}
 
 const saveJson = async (key: string, data: unknown): Promise<void> => {
   const json = JSON.stringify(data)
@@ -29,7 +11,7 @@ const saveJson = async (key: string, data: unknown): Promise<void> => {
 }
 
 const processSegmentQlog = async (dongleId: string, routeId: string, segment: number): Promise<SegmentQlogData | null> => {
-  const key = `${dongleId}/${routeId}--${segment}/qlog.zst`
+  const key = `${dongleId}/${routeId}/${segment}/qlog.zst`
   const res = await mkv.get(key)
   if (!res.ok || !res.body) return null
 
@@ -37,13 +19,11 @@ const processSegmentQlog = async (dongleId: string, routeId: string, segment: nu
 }
 
 const processSegmentQcamera = async (dongleId: string, routeId: string, segment: number): Promise<void> => {
-  const baseKey = `${dongleId}/${routeId}--${segment}`
+  const baseKey = `${dongleId}/${routeId}/${segment}`
 
-  // Check if sprite already exists
   const existingSprite = await mkv.get(`${baseKey}/sprite.jpg`)
   if (existingSprite.ok) return
 
-  // Try qcamera.ts first, then qcamera
   const res = await mkv.get(`${baseKey}/qcamera.ts`)
   if (!res.ok || !res.body) return
 
@@ -54,124 +34,60 @@ const processSegmentQcamera = async (dongleId: string, routeId: string, segment:
   await mkv.put(`${baseKey}/sprite.jpg`, blob.stream(), { 'Content-Type': 'image/jpeg' })
 }
 
-export const processSegment = async (dongleId: string, routeId: string, segment: number): Promise<void> => {
-  const baseKey = `${dongleId}/${routeId}--${segment}`
-
-  // Process qlog if not already done
-  const existingEvents = await mkv.get(`${baseKey}/events.json`)
-  if (!existingEvents.ok) {
-    const data = await processSegmentQlog(dongleId, routeId, segment)
-    if (data) {
-      await saveJson(`${baseKey}/events.json`, data.events)
-      await saveJson(`${baseKey}/coords.json`, data.coords)
-    }
-  }
-
-  // Process qcamera
-  await processSegmentQcamera(dongleId, routeId, segment)
-}
-
-export const processRoute = async (dongleId: string, routeId: string): Promise<boolean> => {
-  const fullname = `${dongleId}|${routeId}`
-
-  // Get segment count by listing files
-  // Files are stored as: /dongleId/routeId--segment/filename
-  // We need to extract segment numbers from the path
-  const files = await mkv.list(`${dongleId}/${routeId}`)
-  const segments = new Set(
-    files
-      .map((f) => {
-        // Extract segment from path like /dongleId/routeId--segment/filename
-        const match = f.match(new RegExp(`${routeId}--(\\d+)/`))
-        return match ? match[1] : null
-      })
-      .filter((s): s is string => s !== null),
-  )
-  const segmentNumbers = Array.from(segments)
-    .map(Number)
-    .sort((a, b) => a - b)
-  const maxSegment = segmentNumbers.length > 0 ? Math.max(...segmentNumbers) : 0
-
-  // Process all segments to generate events.json, coords.json, and sprite.jpg
-  let metadata: RouteMetadata | null = null
-  let firstGps: GpsLocation | null = null
-  let lastGps: GpsLocation | null = null
-  let totalDistance = 0
-
-  for (const segment of segmentNumbers) {
-    const data = await processSegmentQlog(dongleId, routeId, segment)
-    if (data) {
-      // Save events.json and coords.json for this segment
-      const baseKey = `${dongleId}/${routeId}--${segment}`
-      await saveJson(`${baseKey}/events.json`, data.events)
-      await saveJson(`${baseKey}/coords.json`, data.coords)
-
-      // Collect metadata from segment 0
-      if (segment === 0 && data.metadata) metadata = data.metadata
-      if (!firstGps && data.firstGps) firstGps = data.firstGps
-      if (data.lastGps) lastGps = data.lastGps
-      if (data.coords.length > 0) totalDistance = data.coords[data.coords.length - 1].dist
-    }
-
-    // Process qcamera for sprite
-    await processSegmentQcamera(dongleId, routeId, segment)
-  }
-
-  // Check if route already exists
-  const existing = await db.query.routesTable.findFirst({
-    where: (routes, { eq }) => eq(routes.fullname, fullname),
-  })
-
-  const routeData = {
-    fullname,
-    dongle_id: dongleId,
-    version: metadata?.version ?? null,
-    git_commit: metadata?.gitCommit ?? null,
-    git_branch: metadata?.gitBranch ?? null,
-    git_remote: metadata?.gitRemote ?? null,
-    git_dirty: metadata?.gitDirty ?? null,
-    start_lat: firstGps?.Latitude ?? null,
-    start_lng: firstGps?.Longitude ?? null,
-    start_time: firstGps?.UnixTimestampMillis ? new Date(Number(firstGps.UnixTimestampMillis)).toISOString() : null,
-    end_lat: lastGps?.Latitude ?? null,
-    end_lng: lastGps?.Longitude ?? null,
-    end_time: lastGps?.UnixTimestampMillis ? new Date(Number(lastGps.UnixTimestampMillis)).toISOString() : null,
-    distance: totalDistance,
-    maxqlog: maxSegment,
-    procqlog: maxSegment,
-    is_public: false,
-    is_preserved: false,
-  }
-
-  if (existing) {
-    await db.update(routesTable).set(routeData).where(eq(routesTable.fullname, fullname))
-  } else {
-    await db.insert(routesTable).values(routeData)
-  }
-
-  return true
-}
-
 export const processUploadedFile = async (dongleId: string, path: string): Promise<void> => {
-  // Path format: routeId--segment/filename (e.g., 00000033--5a810099dc--0/qlog.zst)
+  // Path is already normalized to: routeId/segment/filename (e.g., 2025-01-07--12-00-00/0/qlog.zst)
   const parts = path.split('/')
-  if (parts.length < 2) return
+  if (parts.length < 3) return
 
-  const folder = parts[0]
-
-  // Only process on qlog upload
+  const routeId = parts[0]
+  const segment = parseInt(parts[1], 10)
   const filename = parts[parts.length - 1]
-  if (filename !== 'qlog.zst' && filename !== 'qlog') return
 
-  // Extract routeId from folder (remove segment suffix)
-  // Formats: 2024-01-01--12-34-56--0 or 00000033--5a810099dc--0
-  const match = folder.match(/^(.+)--(\d+)$/)
-  if (!match) return
-
-  const routeId = match[1]
+  if (Number.isNaN(segment)) return
 
   // Validate routeId format
   if (!/^(\d{4}-\d{2}-\d{2}--\d{2}-\d{2}-\d{2}|[0-9a-f]{8}--[0-9a-f]{10})$/.test(routeId)) return
 
-  await processRoute(dongleId, routeId)
+  const baseKey = `${dongleId}/${routeId}/${segment}`
+
+  // Process qlog - this creates the segment record
+  if (filename === 'qlog.zst' || filename === 'qlog') {
+    const data = await processSegmentQlog(dongleId, routeId, segment)
+
+    // Upsert segment
+    const segmentData = {
+      start_time: data?.firstGps?.UnixTimestampMillis ? Number(data.firstGps.UnixTimestampMillis) : null,
+      end_time: data?.lastGps?.UnixTimestampMillis ? Number(data.lastGps.UnixTimestampMillis) : null,
+      start_lat: data?.firstGps?.Latitude ?? null,
+      start_lng: data?.firstGps?.Longitude ?? null,
+      end_lat: data?.lastGps?.Latitude ?? null,
+      end_lng: data?.lastGps?.Longitude ?? null,
+      distance: data?.coords.length ? data.coords[data.coords.length - 1].dist : null,
+      version: data?.metadata?.version ?? null,
+      git_branch: data?.metadata?.gitBranch ?? null,
+      git_commit: data?.metadata?.gitCommit ?? null,
+      git_commit_date: data?.metadata?.gitCommitDate ?? null,
+      git_dirty: data?.metadata?.gitDirty ?? null,
+      git_remote: data?.metadata?.gitRemote ?? null,
+      platform: data?.metadata?.carFingerprint ?? null,
+      vin: data?.metadata?.vin ?? null,
+    }
+    await db
+      .insert(segmentsTable)
+      .values({ dongle_id: dongleId, route_id: routeId, segment, ...segmentData })
+      .onConflictDoUpdate({
+        target: [segmentsTable.dongle_id, segmentsTable.route_id, segmentsTable.segment],
+        set: segmentData,
+      })
+
+    if (data) {
+      await saveJson(`${baseKey}/events.json`, data.events)
+      await saveJson(`${baseKey}/coords.json`, data.coords)
+    }
+  }
+
+  // Process qcamera to extract sprite
+  if (filename === 'qcamera.ts') {
+    await processSegmentQcamera(dongleId, routeId, segment)
+  }
 }

@@ -3,8 +3,8 @@ import { integer, sqliteTable, text, real, primaryKey } from 'drizzle-orm/sqlite
 import { Permission } from '../../connect/src/types'
 
 const createdAt = (name: string) =>
-  integer(name, { mode: 'timestamp' })
-    .$defaultFn(() => new Date())
+  integer(name)
+    .$defaultFn(() => Date.now())
     .notNull()
 
 export const usersTable = sqliteTable('users', {
@@ -47,38 +47,48 @@ export const deviceUsersTable = sqliteTable(
 )
 export type DeviceUserData = InferSelectModel<typeof deviceUsersTable>
 
-export const routesTable = sqliteTable('routes', {
-  fullname: text('fullname').primaryKey(),
-  dongle_id: text('dongle_id').notNull(),
-  end_lat: real('end_lat'),
-  end_lng: real('end_lng'),
-  end_time: text('end_time'),
-  git_branch: text('git_branch'),
-  git_commit: text('git_commit'),
-  git_commit_date: text('git_commit_date'),
-  git_dirty: integer('git_dirty', { mode: 'boolean' }),
-  git_remote: text('git_remote'),
-  is_public: integer('is_public', { mode: 'boolean' }).notNull(),
-  is_preserved: integer('is_preserved', { mode: 'boolean' }).notNull(),
-  distance: real('distance'),
-  maxqlog: real('maxqlog').notNull(),
-  platform: text('platform'),
-  procqlog: real('procqlog').notNull(),
-  start_lat: real('start_lat'),
-  start_lng: real('start_lng'),
-  start_time: text('start_time'),
-  url: text('url'),
-  version: text('version'),
-  vin: text('vin'),
-  make: text('make'),
-  id: real('id'),
-  car_id: real('car_id'),
-  version_id: real('version_id'),
-  user_id: text('user_id'),
+export const segmentsTable = sqliteTable(
+  'segments',
+  {
+    dongle_id: text('dongle_id').notNull(),
+    route_id: text('route_id').notNull(), // e.g., 00000033--5a810099dc
+    segment: integer('segment').notNull(),
 
-  create_time: createdAt('create_time'),
-})
-export type RouteData = InferSelectModel<typeof routesTable>
+    // Processed from qlog
+    start_time: integer('start_time'), // unix ms
+    end_time: integer('end_time'), // unix ms
+    start_lat: real('start_lat'),
+    start_lng: real('start_lng'),
+    end_lat: real('end_lat'),
+    end_lng: real('end_lng'),
+    distance: real('distance'),
+
+    // Metadata (from segment 0)
+    version: text('version'),
+    git_branch: text('git_branch'),
+    git_commit: text('git_commit'),
+    git_commit_date: text('git_commit_date'),
+    git_dirty: integer('git_dirty', { mode: 'boolean' }),
+    git_remote: text('git_remote'),
+    platform: text('platform'), // car fingerprint e.g. TESLA_MODEL_3
+    vin: text('vin'),
+
+    create_time: createdAt('create_time'),
+  },
+  (x) => [primaryKey({ columns: [x.dongle_id, x.route_id, x.segment] })],
+)
+export type SegmentData = InferSelectModel<typeof segmentsTable>
+
+export const routeSettingsTable = sqliteTable(
+  'route_settings',
+  {
+    dongle_id: text('dongle_id').notNull(),
+    route_id: text('route_id').notNull(),
+    is_public: integer('is_public', { mode: 'boolean' }).default(false).notNull(),
+    is_preserved: integer('is_preserved', { mode: 'boolean' }).default(false).notNull(),
+  },
+  (x) => [primaryKey({ columns: [x.dongle_id, x.route_id] })],
+)
 
 export const athenaPingsTable = sqliteTable('athena_pings', {
   id: text('id').primaryKey(),
@@ -105,7 +115,7 @@ export const athenaQueueTable = sqliteTable('athena_queue', {
   dongle_id: text('dongle_id').notNull(),
   method: text('method').notNull(),
   params: text('params').notNull(),
-  expiry: integer('expiry', { mode: 'timestamp' }),
+  expiry: integer('expiry'),
   create_time: createdAt('create_time'),
 })
 
@@ -116,7 +126,7 @@ export const usersRelations = relations(usersTable, ({ many }) => ({
 
 export const devicesRelations = relations(devicesTable, ({ many }) => ({
   users: many(deviceUsersTable),
-  routes: many(routesTable),
+  segments: many(segmentsTable),
   pings: many(athenaPingsTable),
   athenaQueue: many(athenaQueueTable),
 }))
@@ -132,9 +142,9 @@ export const deviceUserRelations = relations(deviceUsersTable, ({ one }) => ({
   }),
 }))
 
-export const routesRelations = relations(routesTable, ({ one }) => ({
+export const segmentsRelations = relations(segmentsTable, ({ one }) => ({
   device: one(devicesTable, {
-    fields: [routesTable.dongle_id],
+    fields: [segmentsTable.dongle_id],
     references: [devicesTable.dongle_id],
   }),
 }))
