@@ -14,12 +14,12 @@ export const route = tsr.router(contract.route, {
     const routeId = route.fullname.split('|')[1]
     const key = `${route.dongle_id}/${routeId}/${params.segment}/${params.file}`
     const res = await mkv.get(key)
-    if (!res.ok) throw new NotFoundError()
+    if (!res.ok) throw new NotFoundError('Segment file not found')
 
     return { status: 200, body: await res.blob() }
   }),
   setPublic: routeMiddleware(async ({ body }, { route, permission }) => {
-    if (permission !== 'owner') throw new ForbiddenError()
+    if (permission !== 'owner') throw new ForbiddenError('Owner access required')
     const routeId = route.fullname.split('|')[1]
 
     await db
@@ -30,7 +30,7 @@ export const route = tsr.router(contract.route, {
     return { status: 200, body: { ...route, is_public: body.is_public } }
   }),
   preserve: routeMiddleware(async (_, { route, permission }) => {
-    if (permission !== 'owner') throw new ForbiddenError()
+    if (permission !== 'owner') throw new ForbiddenError('Owner access required')
     const routeId = route.fullname.split('|')[1]
 
     await db
@@ -41,7 +41,7 @@ export const route = tsr.router(contract.route, {
     return { status: 200, body: { success: 1 } }
   }),
   unPreserve: routeMiddleware(async (_, { route, permission }) => {
-    if (permission !== 'owner') throw new ForbiddenError()
+    if (permission !== 'owner') throw new ForbiddenError('Owner access required')
     const routeId = route.fullname.split('|')[1]
 
     await db

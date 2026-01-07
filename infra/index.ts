@@ -235,11 +235,9 @@ new cloudflare.DnsRecord('api-dns', {
   ttl: 1,
 })
 
-// Storage Box usernames
-const storageBoxes = ['u526268', 'u526270']
 const sshPrivateKey = config.requireSecret('sshPrivateKey')
 
-// One-time server setup: install sshfs, mount storage boxes
+// One-time server setup
 const serverSetup = new command.remote.Command(
   'server-setup',
   {
@@ -248,30 +246,10 @@ const serverSetup = new command.remote.Command(
       user: 'root',
       privateKey: sshPrivateKey,
     },
-    create: pulumi.interpolate`set -e
-
-# Install SSH key for Storage Box access
-mkdir -p ~/.ssh
-cat > ~/.ssh/id_rsa << 'SSHKEY'
-${sshPrivateKey}
-SSHKEY
-chmod 600 ~/.ssh/id_rsa
-
-# Install sshfs
-apt-get update && apt-get install -y sshfs
-
-# Mount Storage Boxes via SSHFS
-${storageBoxes
-  .map(
-    (user, i) => `mkdir -p /mnt/mkv${i}
-umount /mnt/mkv${i} 2>/dev/null || true
-sshfs -p 23 -o IdentityFile=~/.ssh/id_rsa,allow_other,reconnect,ServerAliveInterval=15,StrictHostKeyChecking=no ${user}@${user}.your-storagebox.de: /mnt/mkv${i}
-grep -q "mkv${i}" /etc/fstab || echo "${user}@${user}.your-storagebox.de: /mnt/mkv${i} fuse.sshfs port=23,IdentityFile=/root/.ssh/id_rsa,allow_other,reconnect,ServerAliveInterval=15,StrictHostKeyChecking=no,_netdev 0 0" >> /etc/fstab`,
-  )
-  .join('\n')}
+    create: `set -e
 
 # Create data directories
-mkdir -p /root/mkvdb
+mkdir -p /root/mkv /root/mkvdb
 touch /root/data.db
 
 # Stop old services if any
@@ -310,13 +288,12 @@ docker run -d \
   --name asius-api \
   --restart always \
   -p 80:80 \
-  -v /mnt/mkv0:/mnt/mkv0 \
-  -v /mnt/mkv1:/mnt/mkv1 \
+  -v /root/mkv:/data/mkv \
   -v /root/mkvdb:/data/mkvdb \
   -v /root/data.db:/data/data.db \
   -e PORT=80 \
-  -e MKV_VOLUMES=/mnt/mkv0,/mnt/mkv1 \
   -e MKV_DB=/data/mkvdb \
+  -e MKV_DATA=/data/mkv \
   -e DB_URL=file:///data/data.db \
   -e JWT_SECRET='${config.requireSecret('jwtSecret')}' \
   -e GOOGLE_CLIENT_ID='${config.requireSecret('googleClientId')}' \

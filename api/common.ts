@@ -39,37 +39,37 @@ export const sign = <T extends string | object>(data: T, key: string, expiresIn:
 }
 
 export class BadRequestError extends TsRestResponseError<typeof contract> {
-  constructor(error = 'Bad request') {
-    super(contract, { status: 400, body: { error } })
+  constructor(error: string | undefined) {
+    super(contract, { status: 400, body: { error: error ?? 'Bad request' } })
   }
 }
 
 export class UnauthorizedError extends TsRestResponseError<typeof contract> {
-  constructor(error = 'Unauthorized') {
-    super(contract, { status: 401, body: { error } })
+  constructor(error: string | undefined) {
+    super(contract, { status: 401, body: { error: error ?? 'Unauthorized' } })
   }
 }
 
 export class ForbiddenError extends TsRestResponseError<typeof contract> {
-  constructor(error = 'Forbidden') {
-    super(contract, { status: 403, body: { error } })
+  constructor(error: string | undefined) {
+    super(contract, { status: 403, body: { error: error ?? 'Forbidden' } })
   }
 }
 
 export class NotFoundError extends TsRestResponseError<typeof contract> {
-  constructor(error = 'Not found') {
-    super(contract, { status: 404, body: { error } })
+  constructor(error: string | undefined) {
+    super(contract, { status: 404, body: { error: error ?? 'Not found' } })
   }
 }
 
 export class InternalServerError extends TsRestResponseError<typeof contract> {
-  constructor(error = 'Internal server error') {
-    super(contract, { status: 500, body: { error } })
+  constructor(error: string | undefined) {
+    super(contract, { status: 500, body: { error: error ?? 'Internal server error' } })
   }
 }
 export class NotImplementedError extends TsRestResponseError<typeof contract> {
-  constructor(error = 'Not implemented') {
-    super(contract, { status: 501, body: { error } })
+  constructor(error: string | undefined) {
+    super(contract, { status: 501, body: { error: error ?? 'Not implemented' } })
   }
 }
 

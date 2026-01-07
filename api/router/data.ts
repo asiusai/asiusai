@@ -12,8 +12,8 @@ export const data = tsr.router(contract.data, {
     }
 
     const res = await mkv.get(key, headers)
-    if (res.status === 404) throw new NotFoundError()
-    if (!res.ok) throw new InternalServerError()
+    if (res.status === 404) throw new NotFoundError('File not found')
+    if (!res.ok) throw new InternalServerError('Failed to read file')
 
     for (const h of ['Content-Type', 'Content-Length', 'Content-Range', 'Accept-Ranges', 'Content-Md5']) {
       const v = res.headers.get(h)
@@ -27,7 +27,7 @@ export const data = tsr.router(contract.data, {
 
     const res = await mkv.put(key, request.body, headers)
     // 403 means file already exists in MKV - treat as success
-    if (!res.ok && res.status !== 403) throw new InternalServerError()
+    if (!res.ok && res.status !== 403) throw new InternalServerError('Failed to write file')
 
     // Process route metadata when qlog is uploaded
     const [dongleId, ...pathParts] = key.split('/')
@@ -39,7 +39,7 @@ export const data = tsr.router(contract.data, {
     if (permission !== 'owner') throw new UnauthorizedError('User only has read access')
 
     const res = await mkv.delete(key)
-    if (!res.ok) throw new InternalServerError()
+    if (!res.ok) throw new InternalServerError('Failed to delete file')
 
     return { status: 204, body: undefined }
   }),

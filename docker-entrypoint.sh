@@ -3,42 +3,31 @@ set -e
 
 echo "Starting asius-api container..."
 echo "PORT=$PORT"
-echo "MKV_VOLUMES=${MKV_VOLUMES:-/tmp/mkv0,/tmp/mkv1}"
 
 # Defaults
 MKV_PORT=${MKV_PORT:-3000}
-MKV_VOLUMES=${MKV_VOLUMES:-/tmp/mkv0,/tmp/mkv1}
 MKV_DB=${MKV_DB:-/tmp/mkvdb}
+MKV_DATA=${MKV_DATA:-/data/mkv}
 
-# Check if volumes are mounted
-for vol in $(echo $MKV_VOLUMES | tr ',' ' '); do
-  echo "Checking volume: $vol"
-  ls -la "$vol" 2>&1 | head -5 || echo "Volume $vol not accessible"
-done
+# Setup local MKV volume
+mkdir -p "$MKV_DATA/tmp" "$MKV_DATA/body_temp"
+echo "Starting volume server on port 3001 for $MKV_DATA"
+PORT=3001 ./minikeyvalue/volume "$MKV_DATA/" &
 
-# Start MKV volume servers (one per mounted storage box)
-i=0
-VOLUME_HOSTS=""
-for vol in $(echo $MKV_VOLUMES | tr ',' ' '); do
-  VOL_PORT=$((MKV_PORT + 1 + i))
-  echo "Starting volume server on port $VOL_PORT for $vol"
-  PORT=$VOL_PORT ./minikeyvalue/volume "$vol/" &
-  VOLUME_HOSTS="${VOLUME_HOSTS}localhost:${VOL_PORT},"
-  i=$((i + 1))
-done
-VOLUME_HOSTS=${VOLUME_HOSTS%,}  # Remove trailing comma
+# Wait for volume server to start
+sleep 2
+curl -s -o /dev/null -w "Volume server on port 3001: %{http_code}\n" "http://localhost:3001/" || echo "Volume server not responding"
 
-echo "Starting MKV master on port $MKV_PORT with volumes: $VOLUME_HOSTS"
-# Start MKV master
+echo "Starting MKV master on port $MKV_PORT"
 ./minikeyvalue/src/mkv \
-  -volumes "$VOLUME_HOSTS" \
+  -volumes "localhost:3001" \
   -db "$MKV_DB" \
-  -replicas "$i" \
+  -replicas 1 \
   --port "$MKV_PORT" \
   server &
 
 # Wait for MKV to be ready
-sleep 3
+sleep 2
 echo "MKV started, testing..."
 curl -s "http://localhost:${MKV_PORT}/" || echo "MKV not responding"
 

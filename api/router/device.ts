@@ -106,7 +106,7 @@ export const device = tsr.routerWithMiddleware(contract.device)<{ userId?: strin
 
   // OWNER
   set: deviceMiddleware(async ({ body }, { device, permission, identity }) => {
-    if (permission !== 'owner') throw new ForbiddenError()
+    if (permission !== 'owner') throw new ForbiddenError('Owner access required')
 
     const newDevices = await db.update(devicesTable).set({ alias: body.alias }).where(eq(devicesTable.dongle_id, device.dongle_id)).returning()
     if (newDevices.length !== 1) throw new InternalServerError('Returned invalid amount of devices')
@@ -114,7 +114,7 @@ export const device = tsr.routerWithMiddleware(contract.device)<{ userId?: strin
     return { status: 200, body: await deviceDataToDevice(newDevices[0], identity) }
   }),
   unpair: deviceMiddleware(async (_, { device, permission }) => {
-    if (permission !== 'owner') throw new ForbiddenError()
+    if (permission !== 'owner') throw new ForbiddenError('Owner access required')
 
     await db.delete(deviceUsersTable).where(eq(deviceUsersTable.dongle_id, device.dongle_id))
 
@@ -122,7 +122,7 @@ export const device = tsr.routerWithMiddleware(contract.device)<{ userId?: strin
   }),
 
   uploadFiles: deviceMiddleware(async ({ body, params }, { permission, origin }) => {
-    if (permission !== 'owner') throw new ForbiddenError()
+    if (permission !== 'owner') throw new ForbiddenError('Owner access required')
 
     return {
       status: 200,
@@ -134,7 +134,7 @@ export const device = tsr.routerWithMiddleware(contract.device)<{ userId?: strin
     }
   }),
   getUploadUrl: deviceMiddleware(async ({ params, query }, { origin, permission }) => {
-    if (permission !== 'owner') throw new ForbiddenError()
+    if (permission !== 'owner') throw new ForbiddenError('Owner access required')
 
     const key = normalizeDataKey(`${params.dongleId}/${query.path}`)
     const sig = createDataSignature(key, 'owner', query.expiry_days ? query.expiry_days * 60 * 60 * 24 : undefined)

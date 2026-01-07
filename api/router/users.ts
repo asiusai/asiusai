@@ -24,7 +24,7 @@ export const users = tsr.router(contract.users, {
   }),
   addUser: deviceMiddleware(async ({ body }, { device, permission, identity }) => {
     if (identity.type === 'device') throw new ForbiddenError('Only accessible from user')
-    if (permission !== 'owner') throw new ForbiddenError()
+    if (permission !== 'owner') throw new ForbiddenError('Owner access required')
 
     const user = await db.query.usersTable.findFirst({ where: eq(usersTable.email, body.email) })
     if (!user) throw new NotFoundError('User not found')
@@ -43,7 +43,7 @@ export const users = tsr.router(contract.users, {
     return { status: 200, body: { success: 1 } }
   }),
   deleteUser: deviceMiddleware(async ({ body }, { device, permission, identity }) => {
-    if (permission !== 'owner') throw new ForbiddenError()
+    if (permission !== 'owner') throw new ForbiddenError('Owner access required')
 
     const user = await db.query.usersTable.findFirst({ where: eq(usersTable.email, body.email) })
     if (!user) throw new NotFoundError('User not found')

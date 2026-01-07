@@ -52,20 +52,22 @@ const server = Bun.serve({
   idleTimeout: 255,
   websocket,
   fetch: async (req, server) => {
-    if (req.method === 'OPTIONS') return new Response(null, { headers })
-    const identity = await auth(req)
-    const res = await handle(req, server, identity).catch((e) => {
-      console.error(e)
-      return new Response(`Server error: ${e}`, { status: 500 })
-    })
-    console[res && res.status >= 400 ? 'error' : 'log'](
-      req.method.padEnd(5),
-      res?.status ?? 200,
-      (identity ? `${identity.type}(${identity.id})` : '-').padEnd(24),
-      req.url.split('?')[0],
-    )
-    if (!res) return
-    return res
+    try {
+      if (req.method === 'OPTIONS') return new Response(null, { headers })
+      const identity = await auth(req)
+      const res = await handle(req, server, identity)
+      console[res && res.status >= 400 ? 'error' : 'log'](
+        req.method.padEnd(5),
+        res?.status ?? 200,
+        (identity ? `${identity.type}(${identity.id})` : '-').padEnd(24),
+        req.url.split('?')[0],
+      )
+      if (!res) return
+      return res
+    } catch (e) {
+      console.log(e)
+      return new Response(`Internal error: ${e}`, { status: 500 })
+    }
   },
 })
 

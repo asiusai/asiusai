@@ -22,13 +22,13 @@ export const noMiddleware = createMiddleware(async (_, ctx) => ({ ...ctx }))
 
 export const authenticatedMiddleware = createMiddleware(async (_, ctx) => {
   const identity = ctx.identity
-  if (!identity) throw new UnauthorizedError()
+  if (!identity) throw new UnauthorizedError('Authentication required')
   return { ...ctx, identity }
 })
 
 export const userMiddleware = createMiddleware(async (_, ctx) => {
   const identity = ctx.identity
-  if (!identity || identity.type !== 'user') throw new UnauthorizedError()
+  if (!identity || identity.type !== 'user') throw new UnauthorizedError('User authentication required')
   return { ...ctx, identity }
 })
 
@@ -36,9 +36,9 @@ export const userMiddleware = createMiddleware(async (_, ctx) => {
  * Checks if device or user has access to the requested device
  */
 export const deviceMiddleware = createMiddleware(async (req: { params: { dongleId: string } }, { identity, ...ctx }) => {
-  if (!identity) throw new UnauthorizedError()
+  if (!identity) throw new UnauthorizedError('Authentication required')
   if (identity.type === 'device') {
-    if (identity.device.dongle_id !== req.params.dongleId) throw new ForbiddenError()
+    if (identity.device.dongle_id !== req.params.dongleId) throw new ForbiddenError('Device mismatch')
     return { ...ctx, identity, device: identity.device, permission: 'owner' as const }
   }
 
@@ -46,7 +46,7 @@ export const deviceMiddleware = createMiddleware(async (req: { params: { dongleI
     where: and(eq(deviceUsersTable.user_id, identity.id), eq(deviceUsersTable.dongle_id, req.params.dongleId)),
     with: { device: true },
   })
-  if (!deviceUser) throw new ForbiddenError()
+  if (!deviceUser) throw new ForbiddenError('No access to device')
 
   return { ...ctx, identity, device: deviceUser.device, permission: deviceUser.permission }
 })
@@ -111,10 +111,10 @@ const aggregateRouteFromSegments = async (dongleId: string, routeId: string, ori
 export const routeMiddleware = createMiddleware(
   async (req: { params: { routeName: string; sig?: string }; query?: { sig?: string } }, { identity, ...ctx }) => {
     const [dongleId, routeId] = decodeURIComponent(req.params.routeName).split('|')
-    if (!dongleId || !routeId) throw new NotFoundError()
+    if (!dongleId || !routeId) throw new NotFoundError('Invalid route name')
 
     const route = await aggregateRouteFromSegments(dongleId, routeId, ctx.origin)
-    if (!route) throw new NotFoundError()
+    if (!route) throw new NotFoundError('Route not found')
 
     // Check signature access
     const sig = req.params.sig ?? req.query?.sig
@@ -130,14 +130,14 @@ export const routeMiddleware = createMiddleware(
     if (route.is_public) return { ...ctx, identity, route, permission: 'read_access' as const }
 
     // Otherwise require authentication
-    if (!identity) throw new UnauthorizedError()
-    if (identity.type === 'device') throw new ForbiddenError()
+    if (!identity) throw new UnauthorizedError('Authentication required')
+    if (identity.type === 'device') throw new ForbiddenError('Device cannot access user routes')
 
     const deviceUser = await db.query.deviceUsersTable.findFirst({
       where: and(eq(deviceUsersTable.user_id, identity.user.id), eq(deviceUsersTable.dongle_id, dongleId)),
       with: { device: true },
     })
-    if (!deviceUser) throw new ForbiddenError()
+    if (!deviceUser) throw new ForbiddenError('No access to route')
 
     return { ...ctx, identity, route, permission: deviceUser.permission }
   },
@@ -159,17 +159,17 @@ export const dataMiddleware = createMiddleware(async (req: { params: { _key: str
 
   if (req.query.sig) {
     const signature = verify<DataSignature>(req.query.sig, env.JWT_SECRET)
-    if (!signature || signature.key !== key) throw new ForbiddenError()
+    if (!signature || signature.key !== key) throw new ForbiddenError('Invalid signature')
     const device = await db.query.devicesTable.findFirst({ where: eq(devicesTable.dongle_id, dongleId) })
-    if (!device) throw new NotFoundError()
+    if (!device) throw new NotFoundError('Device not found')
     return { ...ctx, identity, permission: signature.permission, key, device }
   }
 
   // if (dongleId) return { ...ctx, identity, permission: 'owner', key }
 
-  if (!identity) throw new UnauthorizedError()
+  if (!identity) throw new UnauthorizedError('Authentication required')
   if (identity.type === 'device') {
-    if (identity.device.dongle_id !== dongleId) throw new ForbiddenError()
+    if (identity.device.dongle_id !== dongleId) throw new ForbiddenError('Device mismatch')
     return { ...ctx, identity, permission: 'owner' as const, device: identity.device, key }
   }
 
@@ -177,7 +177,7 @@ export const dataMiddleware = createMiddleware(async (req: { params: { _key: str
     where: and(eq(deviceUsersTable.dongle_id, dongleId), eq(deviceUsersTable.user_id, identity.user.id)),
     with: { device: true },
   })
-  if (!deviceUser) throw new ForbiddenError()
+  if (!deviceUser) throw new ForbiddenError('No access to data')
 
   return { ...ctx, identity, permission: deviceUser.permission, key, device: deviceUser.device }
 })

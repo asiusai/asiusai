@@ -19,7 +19,7 @@ const findOrCreateUser = async (email: string) => {
 
 export const auth = tsr.router(contract.auth, {
   auth: noMiddleware(async ({ body }) => {
-    if (body.provider !== 'google') throw new BadRequestError()
+    if (body.provider !== 'google') throw new BadRequestError('Unsupported provider')
 
     const res1 = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
@@ -45,10 +45,10 @@ export const auth = tsr.router(contract.auth, {
     return { status: 200, body: { access_token: token } }
   }),
   appleRedirect: noMiddleware(async () => {
-    throw new NotImplementedError()
+    throw new NotImplementedError('Apple auth not available')
   }),
   githubRedirect: noMiddleware(async () => {
-    throw new NotImplementedError()
+    throw new NotImplementedError('GitHub auth not available')
   }),
   googleRedirect: noMiddleware(async ({ query }, { responseHeaders }) => {
     const [_, host] = query.state.split(',')
