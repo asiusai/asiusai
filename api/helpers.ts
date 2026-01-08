@@ -26,6 +26,9 @@ export const aggregateRoute = async (dongleId: string, routeId: string, origin: 
 
   const firstSeg = segments[0]
   const lastSeg = segments[segments.length - 1]
+
+  // Skip routes without GPS data (incomplete/boot-only routes)
+  if (!firstSeg.start_time || !lastSeg.end_time) return null
   const maxSegment = Math.max(...segments.map((s) => s.segment))
   const make = firstSeg.platform?.split('_')[0]?.toLowerCase() ?? null
 

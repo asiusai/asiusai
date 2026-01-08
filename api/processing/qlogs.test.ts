@@ -11,70 +11,70 @@ describe('qlogs', () => {
   for (const route of ROUTES) {
     if (route.hasMetadata) {
       test(`${route.name} metadata matches comma API`, async () => {
-      const expected = (await Bun.file(`${TEST_DATA_DIR}/${route.name}.json`).json()) as {
-        version: string
-        git_commit: string
-        git_branch: string
-        git_remote: string
-        git_commit_date: string
-        git_dirty: boolean
-        platform: string
-        vin: string
-        make: string
-        start_lat: number
-        start_lng: number
-        end_lat: number
-        end_lng: number
-        distance: number
-      }
+        const expected = (await Bun.file(`${TEST_DATA_DIR}/${route.name}.json`).json()) as {
+          version: string
+          git_commit: string
+          git_branch: string
+          git_remote: string
+          git_commit_date: string
+          git_dirty: boolean
+          platform: string
+          vin: string
+          make: string
+          start_lat: number
+          start_lng: number
+          end_lat: number
+          end_lng: number
+          distance: number
+        }
 
-      let metadata: {
-        version?: string
-        gitCommit?: string
-        gitBranch?: string
-        gitRemote?: string
-        gitCommitDate?: string
-        gitDirty?: boolean
-        vin?: string
-        carFingerprint?: string
-      } | null = null
-      let firstGps: { Latitude?: number; Longitude?: number } | null = null
-      let lastGps: { Latitude?: number; Longitude?: number } | null = null
-      let totalDistance = 0
+        let metadata: {
+          version?: string
+          gitCommit?: string
+          gitBranch?: string
+          gitRemote?: string
+          gitCommitDate?: string
+          gitDirty?: boolean
+          vin?: string
+          carFingerprint?: string
+        } | null = null
+        let firstGps: { Latitude?: number; Longitude?: number } | null = null
+        let lastGps: { Latitude?: number; Longitude?: number } | null = null
+        let totalDistance = 0
 
-      for (let segment = 0; segment < route.segmentCount; segment++) {
-        const qlogFile = Bun.file(`${TEST_DATA_DIR}/${route.name}--${segment}--qlog.zst`)
-        const result = await processQlogStream(qlogFile.stream(), segment)
-        expect(result).not.toBeNull()
+        for (let segment = 0; segment < route.segmentCount; segment++) {
+          const qlogFile = Bun.file(`${TEST_DATA_DIR}/${route.name}--${segment}--qlog.zst`)
+          const result = await processQlogStream(qlogFile.stream(), segment)
+          expect(result).not.toBeNull()
 
-        if (segment === 0 && result!.metadata) metadata = result!.metadata
-        if (!firstGps && result!.firstGps) firstGps = result!.firstGps
-        if (result!.lastGps) lastGps = result!.lastGps
-        if (result!.coords.length > 0) totalDistance += result!.coords[result!.coords.length - 1].dist
-      }
+          if (segment === 0 && result!.metadata) metadata = result!.metadata
+          if (!firstGps && result!.firstGps) firstGps = result!.firstGps
+          if (result!.lastGps) lastGps = result!.lastGps
+          if (result!.coords.length > 0) totalDistance += result!.coords[result!.coords.length - 1].dist
+        }
 
-      // Check metadata from segment 0
-      expect(metadata?.version).toBe(expected.version)
-      expect(metadata?.gitCommit).toBe(expected.git_commit)
-      expect(metadata?.gitBranch).toBe(expected.git_branch)
-      expect(metadata?.gitRemote?.replace('https://', '')).toBe(expected.git_remote)
-      expect(metadata?.gitCommitDate).toBe(expected.git_commit_date)
-      expect(metadata?.gitDirty).toBe(expected.git_dirty)
-      expect(metadata?.carFingerprint).toBe(expected.platform)
-      expect(metadata?.vin).toBe(expected.vin)
-      // make is derived from platform (first part before _)
-      expect(metadata?.carFingerprint?.split('_')[0]?.toLowerCase()).toBe(expected.make)
+        // Check metadata from segment 0
+        expect(metadata?.version).toBe(expected.version)
+        expect(metadata?.gitCommit).toBe(expected.git_commit)
+        expect(metadata?.gitBranch).toBe(expected.git_branch)
+        expect(metadata?.gitRemote?.replace('https://', '')).toBe(expected.git_remote)
+        expect(metadata?.gitCommitDate).toBe(expected.git_commit_date)
+        expect(metadata?.gitDirty).toBe(expected.git_dirty)
+        expect(metadata?.carFingerprint).toBe(expected.platform)
+        expect(metadata?.vin).toBe(expected.vin)
+        // make is derived from platform (first part before _)
+        expect(metadata?.carFingerprint?.split('_')[0]?.toLowerCase()).toBe(expected.make)
 
-      // Check GPS start/end coordinates (2 decimal places = ~1km accuracy)
-      expect(firstGps?.Latitude).toBeCloseTo(expected.start_lat, 2)
-      expect(firstGps?.Longitude).toBeCloseTo(expected.start_lng, 2)
-      expect(lastGps?.Latitude).toBeCloseTo(expected.end_lat, 2)
-      expect(lastGps?.Longitude).toBeCloseTo(expected.end_lng, 2)
+        // Check GPS start/end coordinates (2 decimal places = ~1km accuracy)
+        expect(firstGps?.Latitude).toBeCloseTo(expected.start_lat, 2)
+        expect(firstGps?.Longitude).toBeCloseTo(expected.start_lng, 2)
+        expect(lastGps?.Latitude).toBeCloseTo(expected.end_lat, 2)
+        expect(lastGps?.Longitude).toBeCloseTo(expected.end_lng, 2)
 
-      // TODO: this is still off too much
-      // Check distance is reasonable (same order of magnitude)
-      expect(totalDistance).toBeGreaterThan(0)
-      expect(totalDistance).toBeLessThan(expected.distance * 2)
+        // TODO: this is still off too much
+        // Check distance is reasonable (same order of magnitude)
+        expect(totalDistance).toBeGreaterThan(0)
+        expect(totalDistance).toBeLessThan(expected.distance * 2)
       })
     }
 
@@ -121,5 +121,4 @@ describe('qlogs', () => {
       })
     }
   }
-
 })
