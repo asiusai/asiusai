@@ -86,27 +86,29 @@ export const routeMiddleware = createMiddleware(
       }
     }
 
-    // Public routes are accessible without auth
-    if (route.is_public) return { ...ctx, identity, route, permission: 'read_access' as const }
+    // Check authenticated access first (so owners can modify public routes)
+    if (identity) {
+      if (identity.type === 'device') {
+        if (identity.device.dongle_id === dongleId) return { ...ctx, identity, route, permission: 'owner' as const }
+      } else {
+        // superuser
+        if (identity.user.superuser) return { ...ctx, identity, route, permission: 'owner' as const }
 
-    // Otherwise require authentication
-    if (!identity) throw new UnauthorizedError('Authentication required')
-    if (identity.type === 'device') {
-      if (identity.device.dongle_id !== dongleId) throw new ForbiddenError('Device mismatch')
-      return { ...ctx, identity, route, permission: 'owner' as const }
+        // user
+        const deviceUser = await db.query.deviceUsersTable.findFirst({
+          where: and(eq(deviceUsersTable.user_id, identity.user.id), eq(deviceUsersTable.dongle_id, dongleId)),
+          with: { device: true },
+        })
+        if (deviceUser) return { ...ctx, identity, route, permission: deviceUser.permission }
+      }
     }
 
-    // superuser
-    if (identity.user.superuser) return { ...ctx, identity, route, permission: 'owner' as const }
+    // Public routes are accessible without auth (or if authenticated but not owner)
+    if (route.is_public) return { ...ctx, identity, route, permission: 'read_access' as const }
 
-    // user
-    const deviceUser = await db.query.deviceUsersTable.findFirst({
-      where: and(eq(deviceUsersTable.user_id, identity.user.id), eq(deviceUsersTable.dongle_id, dongleId)),
-      with: { device: true },
-    })
-    if (!deviceUser) throw new ForbiddenError('No access to route')
-
-    return { ...ctx, identity, route, permission: deviceUser.permission }
+    // No access
+    if (!identity) throw new UnauthorizedError('Authentication required')
+    throw new ForbiddenError('No access to route')
   },
 )
 

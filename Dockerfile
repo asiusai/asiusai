@@ -8,8 +8,8 @@ RUN cd src && go build -o mkv
 # Stage 2: Final image
 FROM oven/bun:latest
 
-# Install only nginx (needed for volume servers) and curl (for debugging)
-RUN apt-get update && apt-get install -y --no-install-recommends nginx curl && rm -rf /var/lib/apt/lists/*
+# Install nginx (volume servers), curl (debugging), ffmpeg (sprite generation)
+RUN apt-get update && apt-get install -y --no-install-recommends nginx curl ffmpeg && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 

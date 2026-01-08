@@ -31,5 +31,5 @@ export const auth = async (req: Request): Promise<Identity | undefined> => {
 }
 
 export const generateAuthToken = (userId: string) => {
-  return sign<Claim>({ identity: userId }, env.JWT_SECRET, 60 * 60 * 24 * 30)
+  return sign<Claim>({ identity: userId }, env.JWT_SECRET, 60 * 60 * 24 * 365)
 }
