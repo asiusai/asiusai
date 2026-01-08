@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm'
+import { and, asc, eq } from 'drizzle-orm'
 import { Permission, Route, RouteSegment } from '../connect/src/types'
 import { db } from './db/client'
 import { segmentsTable, routeSettingsTable } from './db/schema'
@@ -22,7 +22,7 @@ export const aggregateRoute = async (
 ): Promise<AggregatedRoute | null> => {
   const segments = await db.query.segmentsTable.findMany({
     where: and(eq(segmentsTable.dongle_id, dongleId), eq(segmentsTable.route_id, routeId)),
-    orderBy: segmentsTable.segment,
+    orderBy: (s) => asc(s.segment),
   })
   if (segments.length === 0) return null
 

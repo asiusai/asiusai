@@ -91,7 +91,10 @@ export const routeMiddleware = createMiddleware(
 
     // Otherwise require authentication
     if (!identity) throw new UnauthorizedError('Authentication required')
-    if (identity.type === 'device') throw new ForbiddenError('Device cannot access user routes')
+    if (identity.type === 'device') {
+      if (identity.device.dongle_id !== dongleId) throw new ForbiddenError('Device mismatch')
+      return { ...ctx, identity, route, permission: 'owner' as const }
+    }
 
     // superuser
     if (identity.user.superuser) return { ...ctx, identity, route, permission: 'owner' as const }

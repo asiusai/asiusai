@@ -6,7 +6,8 @@
   "packageManager": "bun@1.2.9",
   "scripts": {
     "fix": "biome check --write",
-    "test": "bun test"
+    "test": "bun test",
+    "mkv": "cd minikeyvalue && tools/bringup.sh"
   },
   "workspaces": [
     "connect",

@@ -7,7 +7,10 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "fix": "biome check --write"
+    "fix": "biome check --write",
+    "test-device": "bun run scripts/test-device.ts",
+    "test-device:konik": "bun run scripts/test-device.ts konik",
+    "test-device:asius": "bun run scripts/test-device.ts asius"
   },
   "dependencies": {
     "@libsql/client": "^0.15.15",
