@@ -1,0 +1,115 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500" fill="none">
+  <defs>
+    <linearGradient id="bg2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f0f0f"/>
+      <stop offset="100%" stop-color="#1a1a2e"/>
+    </linearGradient>
+    <linearGradient id="purple2" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#7c3aed"/>
+      <stop offset="100%" stop-color="#a855f7"/>
+    </linearGradient>
+    <linearGradient id="road" x1="50%" y1="0%" x2="50%" y2="100%">
+      <stop offset="0%" stop-color="#1a1a2e"/>
+      <stop offset="100%" stop-color="#0d0d15"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="800" height="500" fill="url(#bg2)" rx="12"/>
+
+  <!-- Header -->
+  <rect x="0" y="0" width="800" height="56" fill="#111111" rx="12"/>
+  <rect x="0" y="40" width="800" height="16" fill="#111111"/>
+
+  <!-- Logo -->
+  <circle cx="32" cy="28" r="12" fill="url(#purple2)"/>
+  <text x="52" y="33" fill="white" font-family="system-ui" font-size="16" font-weight="600">connect</text>
+
+  <!-- Nav Items -->
+  <text x="620" y="33" fill="white" font-family="system-ui" font-size="13" font-weight="500">Routes</text>
+  <text x="690" y="33" fill="#888" font-family="system-ui" font-size="13">Files</text>
+  <text x="750" y="33" fill="#888" font-family="system-ui" font-size="13">Settings</text>
+
+  <!-- Video Player Area -->
+  <rect x="24" y="72" width="520" height="320" rx="12" fill="#000"/>
+
+  <!-- Road simulation -->
+  <rect x="24" y="72" width="520" height="320" rx="12" fill="url(#road)"/>
+
+  <!-- Horizon line -->
+  <line x1="24" y1="200" x2="544" y2="200" stroke="#333" stroke-width="1"/>
+
+  <!-- Road perspective -->
+  <polygon points="284,392 160,392 220,240 348,240" fill="#222" stroke="#444" stroke-width="1"/>
+
+  <!-- Lane lines -->
+  <line x1="260" y1="392" x2="270" y2="240" stroke="#f59e0b" stroke-width="2" stroke-dasharray="20,10"/>
+  <line x1="308" y1="392" x2="298" y2="240" stroke="#f59e0b" stroke-width="2" stroke-dasharray="20,10"/>
+
+  <!-- Openpilot overlay elements -->
+  <path d="M 284 320 Q 284 280 284 260" stroke="#10b981" stroke-width="4" fill="none" stroke-linecap="round"/>
+  <circle cx="284" cy="260" r="6" fill="#10b981"/>
+
+  <!-- Speed indicator -->
+  <rect x="44" y="92" width="80" height="60" rx="8" fill="rgba(0,0,0,0.7)"/>
+  <text x="84" y="125" fill="white" font-family="system-ui" font-size="28" font-weight="700" text-anchor="middle">67</text>
+  <text x="84" y="142" fill="#888" font-family="system-ui" font-size="11" text-anchor="middle">MPH</text>
+
+  <!-- Status badge -->
+  <rect x="44" y="340" width="120" height="32" rx="6" fill="rgba(16,185,129,0.2)" stroke="#10b981" stroke-width="1"/>
+  <circle cx="60" cy="356" r="4" fill="#10b981"/>
+  <text x="72" y="361" fill="#10b981" font-family="system-ui" font-size="12" font-weight="500">ENGAGED</text>
+
+  <!-- Live badge -->
+  <rect x="464" y="92" width="60" height="24" rx="4" fill="#ef4444"/>
+  <circle cx="478" cy="104" r="4" fill="white"/>
+  <text x="490" y="109" fill="white" font-family="system-ui" font-size="11" font-weight="600">LIVE</text>
+
+  <!-- Video controls -->
+  <rect x="24" y="400" width="520" height="48" rx="0 0 12 12" fill="#1a1a1a"/>
+
+  <!-- Play button -->
+  <circle cx="60" cy="424" r="16" fill="#333"/>
+  <polygon points="56,418 56,430 68,424" fill="white"/>
+
+  <!-- Timeline -->
+  <rect x="92" y="420" width="360" height="8" rx="4" fill="#333"/>
+  <rect x="92" y="420" width="180" height="8" rx="4" fill="url(#purple2)"/>
+  <circle cx="272" cy="424" r="6" fill="white"/>
+
+  <!-- Time -->
+  <text x="468" y="428" fill="#888" font-family="system-ui" font-size="12">12:34 / 25:08</text>
+
+  <!-- Side Panel -->
+  <rect x="560" y="72" width="224" height="376" rx="12" fill="#111"/>
+
+  <!-- Route info -->
+  <text x="576" y="100" fill="white" font-family="system-ui" font-size="14" font-weight="600">Route Details</text>
+
+  <text x="576" y="132" fill="#888" font-family="system-ui" font-size="11">DATE</text>
+  <text x="576" y="150" fill="white" font-family="system-ui" font-size="13">Jan 8, 2024 - 10:15 AM</text>
+
+  <text x="576" y="180" fill="#888" font-family="system-ui" font-size="11">DURATION</text>
+  <text x="576" y="198" fill="white" font-family="system-ui" font-size="13">25 minutes</text>
+
+  <text x="576" y="228" fill="#888" font-family="system-ui" font-size="11">DISTANCE</text>
+  <text x="576" y="246" fill="white" font-family="system-ui" font-size="13">18.4 miles</text>
+
+  <text x="576" y="276" fill="#888" font-family="system-ui" font-size="11">ENGAGEMENT</text>
+  <rect x="576" y="286" width="140" height="8" rx="4" fill="#333"/>
+  <rect x="576" y="286" width="126" height="8" rx="4" fill="#10b981"/>
+  <text x="724" y="294" fill="#10b981" font-family="system-ui" font-size="11">90%</text>
+
+  <!-- Action buttons -->
+  <rect x="576" y="320" width="192" height="40" rx="8" fill="url(#purple2)"/>
+  <text x="632" y="346" fill="white" font-family="system-ui" font-size="13" font-weight="500">Download Clip</text>
+
+  <rect x="576" y="368" width="192" height="40" rx="8" fill="#1f1f1f" stroke="#333" stroke-width="1"/>
+  <text x="645" y="394" fill="#ccc" font-family="system-ui" font-size="13">Share Route</text>
+
+  <rect x="576" y="416" width="92" height="32" rx="6" fill="#1f1f1f" stroke="#333" stroke-width="1"/>
+  <text x="600" y="437" fill="#ccc" font-family="system-ui" font-size="12">Events</text>
+
+  <rect x="676" y="416" width="92" height="32" rx="6" fill="#1f1f1f" stroke="#333" stroke-width="1"/>
+  <text x="708" y="437" fill="#ccc" font-family="system-ui" font-size="12">Map</text>
+</svg>
