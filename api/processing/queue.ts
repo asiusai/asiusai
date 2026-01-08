@@ -21,10 +21,7 @@ export const queueFile = async (key: string, size: number): Promise<void> => {
     }
   }
 
-  await db
-    .insert(filesTable)
-    .values({ key, dongle_id, route_id, segment, file, size })
-    .onConflictDoUpdate({ target: filesTable.key, set: { size } })
+  await db.insert(filesTable).values({ key, dongle_id, route_id, segment, file, size }).onConflictDoUpdate({ target: filesTable.key, set: { size } })
 }
 
 export const startQueueWorker = () => {

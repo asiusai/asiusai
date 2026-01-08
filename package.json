@@ -5,9 +5,16 @@
   "private": true,
   "packageManager": "bun@1.2.9",
   "scripts": {
-    "fix": "biome check --write",
+    "dev": "conc -n mkv,api,site,connect bun:dev:*",
+    "dev:api": "bun --cwd api dev",
+    "dev:site": "bun --cwd site dev",
+    "dev:connect": "bun --cwd connect dev",
+    "dev:mkv": "cd minikeyvalue && tools/bringup.sh",
+    "fix": "bun --cwd connect fix && biome check --write",
     "test": "bun test",
-    "mkv": "cd minikeyvalue && tools/bringup.sh"
+    "test:device": "INTEGRATION=1 bun test api/scripts/device.test.ts",
+    "infra": "bun --cwd infra up",
+    "db:push": "bun --cwd api db:push"
   },
   "workspaces": [
     "connect",
@@ -16,7 +23,8 @@
     "site"
   ],
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "concurrently": "^9.2.1"
   },
   "peerDependencies": {
     "typescript": "^5"

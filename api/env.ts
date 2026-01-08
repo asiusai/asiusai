@@ -5,7 +5,7 @@ const zArray = () =>
     .string()
     .or(z.string().array())
     .transform((x) => (typeof x === 'string' ? x.split(',') : x))
-    
+
 export const Environment = z.object({
   MKV_URL: z.string().default('http://localhost:3000'),
 
@@ -16,7 +16,7 @@ export const Environment = z.object({
   GOOGLE_CLIENT_SECRET: z.string(),
 
   WORKER_COUNT: z.coerce.number().default(2),
-  WORKER_POLL_INTERVAL:z.coerce.number().default(5000),
+  WORKER_POLL_INTERVAL: z.coerce.number().default(5000),
 
   SUPERUSERS: zArray().default(['nagelkarel@gmail.com']),
 })

@@ -91,4 +91,3 @@ export const processFile = async (dongleId: string, path: string): Promise<void>
     await processSegmentQcamera(dongleId, routeId, segment)
   }
 }
-

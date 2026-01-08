@@ -31,18 +31,14 @@ const formatBytes = (bytes: number) => {
 }
 
 const Dot = ({ status }: { status: 'ok' | 'error' }) => (
-  <span
-    className={`w-3 h-3 rounded-full inline-block ${
-      status === 'ok' ? 'bg-green-500 shadow-[0_0_8px_#22c55e]' : 'bg-red-500 shadow-[0_0_8px_#ef4444]'
-    }`}
-  />
+  <span className={`w-3 h-3 rounded-full inline-block ${status === 'ok' ? 'bg-green-500 shadow-[0_0_8px_#22c55e]' : 'bg-red-500 shadow-[0_0_8px_#ef4444]'}`} />
 )
 
 const ServiceRow = ({ name, service }: { name: string; service: ServiceStatus }) => (
   <div className="flex justify-between items-center py-2">
     <span className="font-medium">{name}</span>
     <span className="flex items-center gap-2">
-      {service.latency && <span className="text-sm text-[#737373]">{service.latency}ms</span>}
+      {service.latency !== undefined && <span className="text-sm text-[#737373]">{service.latency}ms</span>}
       {service.error && <span className="text-sm text-[#737373]">{service.error}</span>}
       <Dot status={service.status} />
     </span>
@@ -55,7 +51,7 @@ const ServiceRowLink = ({ name, service, url }: { name: string; service: Service
       {name}
     </a>
     <span className="flex items-center gap-2">
-      {service.latency && <span className="text-sm text-[#737373]">{service.latency}ms</span>}
+      {service.latency !== undefined && <span className="text-sm text-[#737373]">{service.latency}ms</span>}
       {service.error && <span className="text-sm text-[#737373]">{service.error}</span>}
       <Dot status={service.status} />
     </span>
@@ -128,15 +124,9 @@ export const StatusPage = () => {
   return (
     <>
       <h1 className="text-2xl font-semibold mb-8 flex items-center gap-3 flex-wrap">
-        <span
-          className={`w-3 h-3 rounded-full ${
-            data.status === 'ok' ? 'bg-green-500 shadow-[0_0_8px_#22c55e]' : 'bg-amber-500 shadow-[0_0_8px_#f59e0b]'
-          }`}
-        />
+        <span className={`w-3 h-3 rounded-full ${data.status === 'ok' ? 'bg-green-500 shadow-[0_0_8px_#22c55e]' : 'bg-amber-500 shadow-[0_0_8px_#f59e0b]'}`} />
         Asius Status
-        <span className="font-normal text-base text-[#737373]">
-          {data.status === 'ok' ? 'All systems operational' : 'Service degraded'}
-        </span>
+        <span className="font-normal text-base text-[#737373]">{data.status === 'ok' ? 'All systems operational' : 'Service degraded'}</span>
       </h1>
 
       <Card title="API Services">

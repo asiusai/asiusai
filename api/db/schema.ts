@@ -91,7 +91,6 @@ export const segmentsTable = sqliteTable(
 )
 export type SegmentData = InferSelectModel<typeof segmentsTable>
 
-
 export const athenaPingsTable = sqliteTable('athena_pings', {
   id: text('id').primaryKey(),
   dongle_id: text('dongle_id').notNull(),

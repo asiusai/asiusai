@@ -15,11 +15,7 @@ export const createDataSignature = (key: string, permission: Permission, expires
 
 export type AggregatedRoute = Route & { route_id: string; is_preserved: boolean }
 
-export const aggregateRoute = async (
-  dongleId: string,
-  routeId: string,
-  origin: string,
-): Promise<AggregatedRoute | null> => {
+export const aggregateRoute = async (dongleId: string, routeId: string, origin: string): Promise<AggregatedRoute | null> => {
   const route = await db.query.routesTable.findFirst({
     where: and(eq(routesTable.dongle_id, dongleId), eq(routesTable.route_id, routeId)),
     with: { segments: { orderBy: (s) => asc(s.segment) } },

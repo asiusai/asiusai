@@ -1,6 +1,9 @@
 {
   "name": "@asiusai/infra",
   "private": true,
+  "scripts": {
+    "up": "dotenv pulumi up"
+  },
   "dependencies": {
     "@pulumi/cloudflare": "^6.12.0",
     "@pulumi/command": "^1.1.3",
