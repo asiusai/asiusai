@@ -1,8 +1,9 @@
 FROM oven/bun:latest
 
-# Install Caddy directly
+# Install Caddy directly (detect architecture dynamically)
 RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates \
-    && curl -o /usr/bin/caddy -L "https://caddyserver.com/api/download?os=linux&arch=arm64" \
+    && ARCH=$(dpkg --print-architecture) \
+    && curl -o /usr/bin/caddy -L "https://caddyserver.com/api/download?os=linux&arch=${ARCH}" \
     && chmod +x /usr/bin/caddy \
     && rm -rf /var/lib/apt/lists/*
 
