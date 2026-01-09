@@ -107,9 +107,21 @@ const checkApiHealth = async (): Promise<ServiceStatus> => {
   }
 }
 
+const checkSshHealth = async (): Promise<ServiceStatus> => {
+  const start = Date.now()
+  try {
+    const res = await fetch('https://ssh.asius.ai/health')
+    if (!res.ok) return { status: 'error', error: `HTTP ${res.status}` }
+    return { status: 'ok', latency: Date.now() - start }
+  } catch (e) {
+    return { status: 'error', error: String(e) }
+  }
+}
+
 const getFrontends = async () => {
   const sites = [
     { name: 'api.asius.ai', check: checkApiHealth },
+    { name: 'ssh.asius.ai', check: checkSshHealth },
     { name: 'comma.asius.ai', url: 'https://comma.asius.ai' },
     { name: 'konik.asius.ai', url: 'https://konik.asius.ai' },
     { name: 'connect.asius.ai', url: 'https://connect.asius.ai' },

@@ -2,8 +2,8 @@
 import '../../global.css'
 import { getCollection } from 'astro:content'
 
-const guides = await getCollection('guides')
-guides.sort((a, b) => (a.data.order ?? 99) - (b.data.order ?? 99))
+const docs = await getCollection('docs')
+docs.sort((a, b) => (a.data.order ?? 99) - (b.data.order ?? 99))
 ---
 
 <html lang="en">
@@ -11,8 +11,8 @@ guides.sort((a, b) => (a.data.order ?? 99) - (b.data.order ?? 99))
 		<meta charset="utf-8" />
 		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 		<meta name="viewport" content="width=device-width" />
-		<title>Guides - Asius AI</title>
-		<meta name="description" content="Installation guides and documentation for Asius AI" />
+		<title>Docs - Asius AI</title>
+		<meta name="description" content="Installation docs for Asius AI" />
 	</head>
 	<body class="min-h-screen bg-black text-white">
 		<div class="relative overflow-hidden">
@@ -26,20 +26,20 @@ guides.sort((a, b) => (a.data.order ?? 99) - (b.data.order ?? 99))
 							<span class="text-2xl font-bold">Asius</span>
 						</a>
 						<div class="flex gap-6 text-sm text-gray-400">
-							<a href="/guides" class="text-white">Guides</a>
+							<a href="/docs" class="text-white">Docs</a>
 							<a href="https://github.com/asiusai" class="hover:text-white transition">GitHub</a>
 						</div>
 					</nav>
 				</header>
 
 				<main class="container mx-auto px-6 py-12">
-					<h1 class="text-4xl font-bold mb-8">Guides</h1>
+					<h1 class="text-4xl font-bold mb-8">Docs</h1>
 
 					<div class="grid md:grid-cols-2 gap-6 max-w-4xl">
-						{guides.map((guide) => (
-							<a href={`/guides/${guide.id}`} class="group p-6 rounded-2xl border border-gray-800 bg-gray-900/50 hover:border-gray-600 transition">
-								<h2 class="text-xl font-semibold mb-2 group-hover:text-purple-400 transition">{guide.data.title}</h2>
-								<p class="text-gray-400">{guide.data.description}</p>
+						{docs.map((doc) => (
+							<a href={`/docs/${doc.id}`} class="group p-6 rounded-2xl border border-gray-800 bg-gray-900/50 hover:border-gray-600 transition">
+								<h2 class="text-xl font-semibold mb-2 group-hover:text-purple-400 transition">{doc.data.title}</h2>
+								<p class="text-gray-400">{doc.data.description}</p>
 							</a>
 						))}
 					</div>

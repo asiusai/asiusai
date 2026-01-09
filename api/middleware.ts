@@ -42,19 +42,19 @@ export const superuserMiddleware = createMiddleware(async (_, ctx) => {
 /**
  * Checks if device or user has access to the requested device
  */
-export const deviceMiddleware = createMiddleware(async (req: { params: { dongleId: string } }, { identity, ...ctx }) => {
+export const deviceMiddleware = createMiddleware(async (req: { params: { dongleId: string } }, { identity, request, ...ctx }) => {
   if (!identity) throw new UnauthorizedError('Authentication required')
 
   // device
   if (identity.type === 'device') {
     if (identity.device.dongle_id !== req.params.dongleId) throw new ForbiddenError('Device mismatch')
-    return { ...ctx, identity, device: identity.device, permission: 'owner' as const }
+    return { ...ctx, request, identity, device: identity.device, permission: 'owner' as const }
   }
   const device = await db.query.devicesTable.findFirst({ where: eq(devicesTable.dongle_id, req.params.dongleId) })
   if (!device) throw new NotFoundError('Device not found')
 
   // superuser
-  if (identity.user.superuser) return { ...ctx, identity, device, permission: 'owner' as const }
+  if (identity.user.superuser) return { ...ctx, request, identity, device, permission: 'owner' as const }
 
   // user
   const deviceUser = await db.query.deviceUsersTable.findFirst({
@@ -62,7 +62,35 @@ export const deviceMiddleware = createMiddleware(async (req: { params: { dongleI
   })
   if (!deviceUser) throw new ForbiddenError('No access to device')
 
-  return { ...ctx, identity, device, permission: deviceUser.permission }
+  return { ...ctx, request, identity, device, permission: deviceUser.permission }
+})
+
+export const athenaMiddleware = createMiddleware(async (req: { params: { dongleId: string } }, { identity, request, ...ctx }) => {
+  // SSH API key auth (for ssh.asius.ai proxy server)
+  const sshApiKey = request.headers.get('X-SSH-API-Key')
+  if (sshApiKey && env.SSH_API_KEY && sshApiKey === env.SSH_API_KEY) {
+    const device = await db.query.devicesTable.findFirst({ where: eq(devicesTable.dongle_id, req.params.dongleId) })
+    if (!device) throw new NotFoundError('Device not found')
+    return { ...ctx, request, identity: undefined, device, permission: 'owner' as const }
+  }
+
+  if (!identity) throw new UnauthorizedError('Authentication required')
+  if (identity.type === 'device') throw new ForbiddenError('Cant use athena with device key')
+
+  const device = await db.query.devicesTable.findFirst({ where: eq(devicesTable.dongle_id, req.params.dongleId) })
+  if (!device) throw new NotFoundError('Device not found')
+
+  // superuser
+  if (identity.user.superuser) return { ...ctx, request, identity, device, permission: 'owner' as const }
+
+  // user
+  const deviceUser = await db.query.deviceUsersTable.findFirst({
+    where: and(eq(deviceUsersTable.user_id, identity.id), eq(deviceUsersTable.dongle_id, req.params.dongleId)),
+  })
+  if (!deviceUser) throw new ForbiddenError('No access to device')
+  if (deviceUser.permission !== 'owner') throw new ForbiddenError('Has to be owner')
+
+  return { ...ctx, request, identity, device, permission: deviceUser.permission }
 })
 
 /**

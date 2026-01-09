@@ -99,7 +99,7 @@ describe.skipIf(SKIP)(`Device Integration (${env.MODE})`, () => {
       const path = `${routeId}--${segment}/${filename}`
       const uploadUrl = await getUploadInfo(path, dongleId, deviceToken)
       const fileContent = await readFile(join(EXAMPLE_DATA_DIR, file))
-      await upload(uploadUrl, fileContent.buffer.slice(fileContent.byteOffset, fileContent.byteOffset + fileContent.byteLength))
+      await upload(uploadUrl, fileContent.buffer.slice(fileContent.byteOffset, fileContent.byteOffset + fileContent.byteLength) as ArrayBuffer)
     }
 
     // Upload bootlog and crashlog (local/asius only - konik has different format)

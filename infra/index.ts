@@ -215,7 +215,6 @@ const firewall = new hcloud.Firewall('api-firewall', {
   rules: [
     { direction: 'in', protocol: 'tcp', port: '22', sourceIps: ['0.0.0.0/0', '::/0'] },
     { direction: 'in', protocol: 'tcp', port: '80', sourceIps: ['0.0.0.0/0', '::/0'] },
-    { direction: 'in', protocol: 'tcp', port: '2222', sourceIps: ['0.0.0.0/0', '::/0'] }, // SSH proxy
   ],
 })
 
@@ -233,16 +232,6 @@ new cloudflare.DnsRecord('api-dns', {
   type: 'A',
   content: apiServer.ipv4Address,
   proxied: true,
-  ttl: 1,
-})
-
-// SSH proxy - direct to IP (not proxied, SSH needs direct connection)
-new cloudflare.DnsRecord('ssh-dns', {
-  zoneId: ASIUS_ZONE_ID,
-  name: 'ssh',
-  type: 'A',
-  content: apiServer.ipv4Address,
-  proxied: false,
   ttl: 1,
 })
 
@@ -345,7 +334,6 @@ docker run -d \
   --restart always \
   --privileged \
   -p 80:80 \
-  -p 2222:2222 \
   -v /data/mkv1:/data/mkv1:shared \
   -v /data/mkv2:/data/mkv2:shared \
   -v /data/mkvdb:/data/mkvdb \
@@ -359,6 +347,7 @@ docker run -d \
   -e GOOGLE_CLIENT_ID='${config.requireSecret('googleClientId')}' \
   -e GOOGLE_CLIENT_SECRET='${config.requireSecret('googleClientSecret')}' \
   -e API_ORIGIN='wss://api.asius.ai' \
+  -e SSH_API_KEY='${config.requireSecret('sshApiKey')}' \
   ${IMAGE}
 sleep 5
 docker logs asius-api --tail 50
@@ -369,3 +358,90 @@ docker logs asius-api --tail 50
 )
 
 export const containerLogs = startContainer.stdout
+
+// ------------------------- SSH PROXY SERVER -------------------------
+const sshFirewall = new hcloud.Firewall('ssh-firewall', {
+  rules: [
+    { direction: 'in', protocol: 'tcp', port: '22', sourceIps: ['0.0.0.0/0', '::/0'] },
+    { direction: 'in', protocol: 'tcp', port: '2222', sourceIps: ['0.0.0.0/0', '::/0'] }, // SSH proxy
+    { direction: 'in', protocol: 'tcp', port: '80', sourceIps: ['0.0.0.0/0', '::/0'] }, // HTTP (for ACME)
+    { direction: 'in', protocol: 'tcp', port: '443', sourceIps: ['0.0.0.0/0', '::/0'] }, // HTTPS WebSocket
+  ],
+})
+
+const sshProxyServer = new hcloud.Server('ssh-server', {
+  serverType: 'cax11',
+  image: 'docker-ce',
+  location: 'fsn1',
+  sshKeys: [sshKey.id],
+  firewallIds: [sshFirewall.id.apply((id) => parseInt(id, 10))],
+})
+
+// SSH proxy - direct to IP (not proxied, SSH needs direct connection)
+new cloudflare.DnsRecord('ssh-dns', {
+  zoneId: ASIUS_ZONE_ID,
+  name: 'ssh',
+  type: 'A',
+  content: sshProxyServer.ipv4Address,
+  proxied: false,
+  ttl: 1,
+})
+
+const SSH_IMAGE = 'ghcr.io/asiusai/ssh:latest'
+
+const buildAndPushSsh = new command.local.Command('build-and-push-ssh', {
+  create: pulumi.interpolate`echo '${config.requireSecret('ghToken')}' | docker login ghcr.io -u asiusai --password-stdin && docker build --platform linux/arm64 -t ${SSH_IMAGE} ./ssh && docker push ${SSH_IMAGE}`,
+  dir: join(__dirname, '..'),
+  triggers: [Date.now()],
+})
+
+const sshServerSetup = new command.remote.Command(
+  'ssh-server-setup',
+  {
+    connection: {
+      host: sshProxyServer.ipv4Address,
+      user: 'root',
+      privateKey: sshPrivateKey,
+    },
+    create: `
+systemctl stop nginx 2>/dev/null || true
+systemctl disable nginx 2>/dev/null || true
+apt-get remove -y nginx nginx-common 2>/dev/null || true
+`,
+  },
+  { dependsOn: [sshProxyServer] },
+)
+
+const startSshContainer = new command.remote.Command(
+  'start-ssh-container',
+  {
+    connection: {
+      host: sshProxyServer.ipv4Address,
+      user: 'root',
+      privateKey: sshPrivateKey,
+    },
+    create: pulumi.interpolate`
+echo '${config.requireSecret('ghToken')}' | docker login ghcr.io -u asiusai --password-stdin
+docker pull ${SSH_IMAGE}
+docker stop asius-ssh 2>/dev/null || true
+docker rm asius-ssh 2>/dev/null || true
+docker run -d \
+  --name asius-ssh \
+  --restart always \
+  -p 2222:2222 \
+  -p 80:80 \
+  -p 443:443 \
+  -e SSH_PORT=2222 \
+  -e WS_PORT=8080 \
+  -e API_KEY='${config.requireSecret('sshApiKey')}' \
+  -e WS_ORIGIN='wss://ssh.asius.ai' \
+  ${SSH_IMAGE}
+sleep 3
+docker logs asius-ssh --tail 20
+`,
+    triggers: [buildAndPushSsh.stdout],
+  },
+  { dependsOn: [buildAndPushSsh, sshServerSetup] },
+)
+
+export const sshContainerLogs = startSshContainer.stdout

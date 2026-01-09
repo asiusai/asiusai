@@ -19,6 +19,8 @@ export const Environment = z.object({
   WORKER_POLL_INTERVAL: z.coerce.number().default(5000),
 
   SUPERUSERS: zArray().default(['nagelkarel@gmail.com']),
+
+  SSH_API_KEY: z.string().optional(),
 })
 
 export const env = Environment.parse(process.env)

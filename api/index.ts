@@ -2,13 +2,9 @@ import { fetchRequestHandler } from '@ts-rest/serverless/fetch'
 import { router } from './router'
 import { contract } from '../connect/src/api/contract'
 import { websocket, WebSocketData } from './ws'
-import { SshSocketData, getSshSession, createSshSession, handleSshOpen, handleSshClose, handleSshMessage } from './ssh'
 import { auth } from './auth'
 import { startQueueWorker } from './processing/queue'
 import { rateLimit, getClientIp } from './ratelimit'
-import { startSshServer } from './ssh-server'
-
-type WsData = WebSocketData | SshSocketData
 
 const headers = {
   'Access-Control-Allow-Origin': '*',
@@ -18,18 +14,12 @@ const headers = {
 
 const getOrigin = (url: URL) => (url.origin.includes('localhost') ? url.origin : url.origin.replace('http://', 'https://'))
 
-const isSshSocket = (data: WsData): data is SshSocketData => 'sessionId' in data
-
-const server = Bun.serve<WsData>({
+const server = Bun.serve<WebSocketData>({
   port: Number(process.env.PORT) || 8080,
   hostname: '0.0.0.0',
   idleTimeout: 255,
 
-  websocket: {
-    open: (ws) => (isSshSocket(ws.data) ? handleSshOpen(ws as any) : websocket.open?.(ws as any)),
-    close: (ws, code, reason) => (isSshSocket(ws.data) ? handleSshClose(ws as any) : websocket.close?.(ws as any, code, reason)),
-    message: (ws, msg) => (isSshSocket(ws.data) ? handleSshMessage(ws as any, msg) : websocket.message?.(ws as any, msg)),
-  },
+  websocket,
 
   fetch: async (req, server) => {
     if (req.method === 'OPTIONS') return new Response(null, { headers })
@@ -47,26 +37,6 @@ const server = Bun.serve<WsData>({
         return new Response('Unauthorized', { status: 401 })
       }
       return server.upgrade(req, { data: { dongleId, device: identity.device } }) ? undefined : new Response('WS upgrade failed', { status: 400 })
-    }
-
-    // SSH relay
-    if (url.pathname.startsWith('/ssh/')) {
-      const pathId = url.pathname.slice(5)
-
-      // Device connecting to existing session
-      if (identity?.type === 'device') {
-        const session = getSshSession(pathId)
-        if (!session || identity.device.dongle_id !== session.dongleId) {
-          return new Response('Unauthorized', { status: 401 })
-        }
-        return server.upgrade(req, { data: { sessionId: pathId, type: 'device', dongleId: session.dongleId } })
-          ? undefined
-          : new Response('WS upgrade failed', { status: 400 })
-      }
-
-      // Client connecting - create session and upgrade
-      const sessionId = await createSshSession(pathId, getOrigin(url))
-      return server.upgrade(req, { data: { sessionId, type: 'client', dongleId: pathId } }) ? undefined : new Response('WS upgrade failed', { status: 400 })
     }
 
     // API routes
@@ -94,4 +64,3 @@ const server = Bun.serve<WsData>({
 console.log(`Started server on http://${server.hostname}:${server.port}`)
 
 startQueueWorker()
-startSshServer(2222)
