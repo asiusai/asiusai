@@ -248,6 +248,11 @@ const serverSetup = new command.remote.Command(
     },
     create: pulumi.interpolate`set -e
 
+# Disable and remove nginx (comes with docker-ce image, conflicts with port 80)
+systemctl stop nginx 2>/dev/null || true
+systemctl disable nginx 2>/dev/null || true
+apt-get remove -y nginx nginx-common 2>/dev/null || true
+
 # Install sshfs for mounting storage boxes
 apt-get update && apt-get install -y sshfs
 
@@ -263,16 +268,30 @@ chmod 600 /root/.ssh/storagebox_key
 ssh-keyscan -p 23 u526268.your-storagebox.de >> /root/.ssh/known_hosts 2>/dev/null || true
 ssh-keyscan -p 23 u526270.your-storagebox.de >> /root/.ssh/known_hosts 2>/dev/null || true
 
-# Unmount if already mounted
-fusermount -u /data/mkv1 2>/dev/null || true
-fusermount -u /data/mkv2 2>/dev/null || true
+# Create systemd service for SSHFS mounts (runs on boot)
+cat > /etc/systemd/system/sshfs-mounts.service << 'SSHFS_EOF'
+[Unit]
+Description=Mount storage boxes via SSHFS
+After=network-online.target
+Wants=network-online.target
 
-# Mount storage boxes via SSHFS
-sshfs -o IdentityFile=/root/.ssh/storagebox_key,port=23,allow_other,reconnect,ServerAliveInterval=15,ServerAliveCountMax=3 \
-  u526268@u526268.your-storagebox.de: /data/mkv1
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStartPre=/bin/bash -c 'fusermount -u /data/mkv1 2>/dev/null || true'
+ExecStartPre=/bin/bash -c 'fusermount -u /data/mkv2 2>/dev/null || true'
+ExecStart=/usr/bin/sshfs -o IdentityFile=/root/.ssh/storagebox_key,port=23,allow_other,reconnect,ServerAliveInterval=15,ServerAliveCountMax=3 u526268@u526268.your-storagebox.de: /data/mkv1
+ExecStart=/usr/bin/sshfs -o IdentityFile=/root/.ssh/storagebox_key,port=23,allow_other,reconnect,ServerAliveInterval=15,ServerAliveCountMax=3 u526270@u526270.your-storagebox.de: /data/mkv2
+ExecStop=/bin/fusermount -u /data/mkv1
+ExecStop=/bin/fusermount -u /data/mkv2
 
-sshfs -o IdentityFile=/root/.ssh/storagebox_key,port=23,allow_other,reconnect,ServerAliveInterval=15,ServerAliveCountMax=3 \
-  u526270@u526270.your-storagebox.de: /data/mkv2
+[Install]
+WantedBy=multi-user.target
+SSHFS_EOF
+
+systemctl daemon-reload
+systemctl enable sshfs-mounts
+systemctl start sshfs-mounts
 
 # Create required subdirs on storage boxes
 mkdir -p /data/mkv1/tmp /data/mkv1/body_temp

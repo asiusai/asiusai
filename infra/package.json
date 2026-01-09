@@ -2,7 +2,7 @@
   "name": "@asiusai/infra",
   "private": true,
   "scripts": {
-    "up": "dotenv pulumi up"
+    "up": "dotenv pulumi up --yes"
   },
   "dependencies": {
     "@pulumi/cloudflare": "^6.12.0",
