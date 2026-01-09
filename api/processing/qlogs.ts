@@ -38,11 +38,6 @@ type SelfdriveState = {
 
 const SELFDRIVE_STATE_NAMES = ['disabled', 'preEnabled', 'enabled', 'softDisabling', 'overriding']
 
-type RoadCameraState = {
-  FrameId?: number
-  TimestampEof?: string
-}
-
 export type RouteEvent = {
   type: 'event' | 'state' | 'user_flag'
   time: number
@@ -92,24 +87,27 @@ export const processQlogStream = async (
 
   let firstGps: GpsLocation | null = null
   let lastGps: GpsLocation | null = null
-  let routeStartTime: number | null = null
   let lastState: string | null = null
   let totalDist = 0
   let lastCoord: Coord | null = null
 
-  // For derived events
+  // For derived events - offset_millis is relative to firstPandaStatesTime
   let recordFrontValue: boolean | null = null
   let firstPandaStatesTime: number | null = null
   let firstRoadCameraFrameTime: number | null = null
+  let firstRoadCameraAfterPandaTime: number | null = null
+  let initDataTime: number | null = null
+  let routeStartTimeFromQlog: number | null = null // First LogMonoTime in the qlog
 
   try {
     for await (const event of LogReader(stream)) {
       const logMonoTime = Number(event.LogMonoTime || 0)
-      if (routeStartTime === null && logMonoTime > 0) routeStartTime = logMonoTime
+      if (routeStartTimeFromQlog === null && logMonoTime > 0) routeStartTimeFromQlog = logMonoTime
 
       // Extract init data
       if ('InitData' in event) {
         const init = event.InitData as InitData
+        if (initDataTime === null) initDataTime = logMonoTime
 
         // Only extract metadata from segment 0
         if (segment === 0) {
@@ -152,10 +150,14 @@ export const processQlogStream = async (
       }
 
       // Track first road camera frame in this segment
-      if ('RoadCameraState' in event && firstRoadCameraFrameTime === null) {
-        const cam = event.RoadCameraState as RoadCameraState
-        if (cam.TimestampEof) {
-          firstRoadCameraFrameTime = Number(cam.TimestampEof)
+      // Note: Comma uses RoadCameraState.TimestampEof for the event timestamp, but their anchor
+      // calculation uses data we don't have access to. We use LogMonoTime which produces
+      // consistent relative ordering even if absolute times differ slightly.
+      if ('RoadCameraState' in event) {
+        if (firstRoadCameraFrameTime === null) firstRoadCameraFrameTime = logMonoTime
+        // Also track first RoadCameraState after PandaStates (for boot segment handling)
+        if (firstPandaStatesTime !== null && logMonoTime > firstPandaStatesTime && firstRoadCameraAfterPandaTime === null) {
+          firstRoadCameraAfterPandaTime = logMonoTime
         }
       }
 
@@ -184,6 +186,7 @@ export const processQlogStream = async (
       }
 
       // Extract selfdrive state changes (state, enabled, or alertStatus)
+      // Note: We collect these but calculate offset_millis after we know firstPandaStatesTime
       if ('SelfdriveState' in event) {
         const ss = event.SelfdriveState as SelfdriveState
         const state = SELFDRIVE_STATE_NAMES[ss.State ?? 0] || 'disabled'
@@ -192,12 +195,12 @@ export const processQlogStream = async (
         const stateKey = `${state}|${enabled}|${alertStatus}`
         if (stateKey !== lastState) {
           lastState = stateKey
-          const offsetMillis = routeStartTime ? Math.floor((logMonoTime - routeStartTime) / 1e6) : 0
+          // Store with placeholder offset, will recalculate after loop
           events.push({
             type: 'state',
             time: logMonoTime,
-            offset_millis: offsetMillis,
-            route_offset_millis: offsetMillis + segment * 60000,
+            offset_millis: 0, // placeholder
+            route_offset_millis: 0, // placeholder
             data: { state, enabled, alertStatus },
           })
         }
@@ -205,42 +208,66 @@ export const processQlogStream = async (
 
       // Extract user flags
       if ('UserFlag' in event) {
-        const offsetMillis = routeStartTime ? Math.floor((logMonoTime - routeStartTime) / 1e6) : 0
         events.push({
           type: 'user_flag',
           time: logMonoTime,
-          offset_millis: offsetMillis,
-          route_offset_millis: offsetMillis + segment * 60000,
+          offset_millis: 0, // placeholder
+          route_offset_millis: 0, // placeholder
           data: {},
         })
       }
     }
 
+    // Determine the reference time for offset_millis (firstPandaStatesTime is the anchor)
+    // offset_millis is relative to firstPandaStatesTime (can be negative if event is before it)
+    // route_offset_millis adds segment offset based on routeStartTimeFromQlog
+    const segmentStartOffset = routeStartTimeFromQlog && firstPandaStatesTime
+      ? Math.floor((firstPandaStatesTime - routeStartTimeFromQlog) / 1e6)
+      : 0
+
     // Add derived events
     const derivedEvents: RouteEvent[] = []
 
     // record_front_toggle event - emitted for each segment that has RecordFront in InitData
-    if (recordFrontValue !== null && firstPandaStatesTime !== null && routeStartTime !== null) {
-      const offsetMillis = Math.floor((firstPandaStatesTime - routeStartTime) / 1e6)
+    // This event is anchored at firstPandaStatesTime, so offset_millis = 0
+    if (recordFrontValue !== null && firstPandaStatesTime !== null) {
       derivedEvents.push({
         type: 'event',
         time: firstPandaStatesTime,
-        offset_millis: offsetMillis,
-        route_offset_millis: offsetMillis + segment * 60000,
+        offset_millis: 0,
+        route_offset_millis: segmentStartOffset + segment * 60000,
         data: { event_type: 'record_front_toggle', value: recordFrontValue },
       })
     }
 
     // first_road_camera_frame event - emitted for each segment
-    if (firstRoadCameraFrameTime !== null && routeStartTime !== null) {
-      const offsetMillis = Math.floor((firstRoadCameraFrameTime - routeStartTime) / 1e6)
-      derivedEvents.push({
-        type: 'event',
-        time: firstRoadCameraFrameTime,
-        offset_millis: offsetMillis,
-        route_offset_millis: offsetMillis + segment * 60000,
-        data: { event_type: 'first_road_camera_frame' },
-      })
+    // offset_millis is relative to firstPandaStatesTime (can be negative)
+    // If firstRoadCameraFrameTime is before InitData, it's a stale frame from before recording
+    // started, so use firstRoadCameraAfterPandaTime instead
+    if (firstPandaStatesTime !== null) {
+      const useAfterPanda = initDataTime !== null && firstRoadCameraFrameTime !== null && firstRoadCameraFrameTime < initDataTime
+      const cameraTime = useAfterPanda ? firstRoadCameraAfterPandaTime : firstRoadCameraFrameTime
+
+      if (cameraTime !== null) {
+        const offsetMillis = Math.floor((cameraTime - firstPandaStatesTime) / 1e6)
+        derivedEvents.push({
+          type: 'event',
+          time: cameraTime,
+          offset_millis: offsetMillis,
+          route_offset_millis: segmentStartOffset + offsetMillis + segment * 60000,
+          data: { event_type: 'first_road_camera_frame' },
+        })
+      }
+    }
+
+    // Recalculate offset_millis for all collected events (state, user_flag)
+    // offset_millis is relative to firstPandaStatesTime
+    if (firstPandaStatesTime !== null) {
+      for (const ev of events) {
+        const offsetMillis = Math.floor((ev.time - firstPandaStatesTime) / 1e6)
+        ev.offset_millis = offsetMillis
+        ev.route_offset_millis = segmentStartOffset + offsetMillis + segment * 60000
+      }
     }
 
     // Combine and sort all events by time
