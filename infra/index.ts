@@ -311,6 +311,14 @@ fi
 # Build MKV binary
 cd /app/minikeyvalue/src && go build -o mkv
 
+# Fix nginx volume script to log to file instead of /dev/stderr (doesn't work under systemd)
+sed -i 's|error_log /dev/stderr|error_log /tmp/nginx_error.log|g' /app/minikeyvalue/volume
+
+# Install nginx for MKV volume servers
+apt-get install -y nginx
+systemctl stop nginx
+systemctl disable nginx
+
 # Create systemd service for API
 cat > /etc/systemd/system/asius-api.service << 'EOF'
 [Unit]
@@ -351,6 +359,7 @@ systemctl disable api 2>/dev/null || true
 docker stop asius-api 2>/dev/null || true
 docker rm asius-api 2>/dev/null || true
 `,
+    triggers: [apiServer.id],
   },
   { dependsOn: [apiServer] },
 )
@@ -467,7 +476,7 @@ export PATH="/root/.bun/bin:$PATH"
 
 # Install Caddy
 apt-get install -y debian-keyring debian-archive-keyring apt-transport-https
-curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --batch --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
 curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | tee /etc/apt/sources.list.d/caddy-stable.list
 apt-get update && apt-get install -y caddy
 
@@ -503,6 +512,7 @@ systemctl enable asius-ssh
 docker stop asius-ssh 2>/dev/null || true
 docker rm asius-ssh 2>/dev/null || true
 `,
+    triggers: [sshProxyServer.id],
   },
   { dependsOn: [sshProxyServer] },
 )
