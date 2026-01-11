@@ -13,8 +13,7 @@
     "fix": "bun --cwd connect fix && biome check --write",
     "test": "bun test",
     "test:device": "INTEGRATION=1 bun test api/scripts/device.test.ts",
-    "infra": "bun --cwd infra up",
-    "db:push": "bun --cwd api db:push"
+    "infra": "bun --cwd infra up"
   },
   "workspaces": [
     "connect",

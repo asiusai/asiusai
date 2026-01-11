@@ -8,11 +8,13 @@ type SiteArgs = {
   buildCommand: string
   domain: string
 }
-
+export const getSubdomain = (domain: string) => {
+  const parts = domain.split('.')
+  return parts.length > 2 ? parts[0] : '@'
+}
 export class Site extends pulumi.ComponentResource {
   constructor(name: string, args: SiteArgs, opts?: pulumi.ComponentResourceOptions) {
     super('asius:cloudflare:Site', name, {}, opts)
-
 
     const envVars = { SKIP_DEPENDENCY_INSTALL: { type: 'plain_text', value: 'true' } }
     const project = new cloudflare.PagesProject(
@@ -45,12 +47,11 @@ export class Site extends pulumi.ComponentResource {
       { parent: this },
     )
 
-    const parts = args.domain.split('.')
     new cloudflare.DnsRecord(
       `${name}-dns`,
       {
         zoneId: args.zoneId,
-        name: parts.length > 2 ? parts[0] : '@',
+        name: getSubdomain(args.domain),
         type: 'CNAME',
         content: `${name}.pages.dev`,
         proxied: true,

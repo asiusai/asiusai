@@ -4,6 +4,7 @@ import { db } from '../db/client'
 import { devicesTable, usersTable, segmentsTable, filesTable, uptimeTable } from '../db/schema'
 import { sql, count, countDistinct, desc } from 'drizzle-orm'
 import { env } from '../env'
+import { getLastBackupTime } from '../db/backup'
 
 const startTime = Date.now()
 
@@ -161,7 +162,14 @@ const getUptimeHistory = () => {
 export const admin = tsr.router(contract.admin, {
   health: async () => ({ status: 200 as const, body: { status: 'ok' as const } }),
   status: async () => {
-    const [mkv, database, stats, frontends, ci] = await Promise.all([checkMkv(), checkDb(), getStats(), getFrontends(), getCI()])
+    const [mkv, database, stats, frontends, ci, lastBackup] = await Promise.all([
+      checkMkv(),
+      checkDb(),
+      getStats(),
+      getFrontends(),
+      getCI(),
+      getLastBackupTime(),
+    ])
     const uptimeHistory = getUptimeHistory()
 
     return {
@@ -174,6 +182,7 @@ export const admin = tsr.router(contract.admin, {
         stats,
         frontends,
         ci,
+        lastBackup,
       },
     }
   },
