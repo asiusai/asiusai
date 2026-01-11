@@ -305,7 +305,6 @@ mkdir -p /data/mkv2/tmp /data/mkv2/body_temp
 # Clone repo if not exists
 if [ ! -d /app ]; then
   git clone https://github.com/asiusai/asiusai.git /app
-  cd /app && git submodule update --init
 fi
 
 # Build MKV binary
@@ -388,7 +387,6 @@ cd /app
 # Fetch and checkout the deployed commit
 git fetch origin deploy-api
 git checkout FETCH_HEAD --force
-git submodule update --init
 
 # Install dependencies
 bun install
